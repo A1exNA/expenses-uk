@@ -1,12 +1,19 @@
 <?php
 header("Content-Type: application/json");
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
-// Автозагрузка классов (простейшая)
+// Обработка preflight запросов (OPTIONS)
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// Автозагрузка классов
 spl_autoload_register(function ($class) {
-    // Преобразуем namespace в путь к файлу
     $prefix = 'controllers\\';
     $base_dir = __DIR__ . '/controllers/';
-    
     if (strpos($class, $prefix) === 0) {
         $class = substr($class, strlen($prefix));
         $file = $base_dir . str_replace('\\', '/', $class) . '.php';
@@ -16,7 +23,6 @@ spl_autoload_register(function ($class) {
         }
     }
     
-    // Для моделей
     $prefix = 'models\\';
     $base_dir = __DIR__ . '/models/';
     if (strpos($class, $prefix) === 0) {
@@ -28,7 +34,6 @@ spl_autoload_register(function ($class) {
         }
     }
     
-    // Для utils
     $prefix = 'utils\\';
     $base_dir = __DIR__ . '/utils/';
     if (strpos($class, $prefix) === 0) {
@@ -41,11 +46,14 @@ spl_autoload_register(function ($class) {
     }
 });
 
+// Подключение к БД
+require_once __DIR__ . '/config/database.php';
+$db = getDB();
+
 // Получаем путь запроса
 $request = $_SERVER['REQUEST_URI'];
-$base = '/backend/'; // если проект лежит в подпапке OSPanel, путь будет /expenses-uk/backend/, но у вас, вероятно, http://expenses-uk/backend/ – тогда $base = '/backend/'. Уточните!
+$base = '/backend/'; // Для https://expenses-uk/backend/ это верно
 
-// Удаляем базовую часть пути
 $path = parse_url($request, PHP_URL_PATH);
 if (strpos($path, $base) === 0) {
     $path = substr($path, strlen($base));
@@ -56,17 +64,34 @@ $segments = explode('/', $path);
 $resource = $segments[0] ?? '';
 $id = $segments[1] ?? null;
 
-// Простейшая маршрутизация
+// Маршрутизация
 switch ($resource) {
     case 'test':
         echo json_encode(['status' => 'ok', 'message' => 'API is working']);
         break;
+    
+    case 'users':
+        $controller = new controllers\UserController($db);
+        $method = $_SERVER['REQUEST_METHOD'];
         
-    case 'objects':
-        // Временно заглушка
-        echo json_encode(['message' => 'Objects endpoint', 'id' => $id]);
+        if ($method === 'GET' && $id === null) {
+            $controller->index();
+        } elseif ($method === 'GET' && $id !== null) {
+            $controller->show($id);
+        } elseif ($method === 'POST' && $id === null) {
+            $controller->store();
+        } elseif ($method === 'PUT' && $id !== null) {
+            $controller->update($id);
+        } elseif ($method === 'DELETE' && $id !== null) {
+            $controller->destroy($id);
+        } else {
+            Response::error('Method not allowed or invalid route', 405);
+        }
         break;
-        
+    
     default:
-        echo json_encode(['message' => 'API is running', 'available_endpoints' => ['test', 'objects']]);
+        echo json_encode([
+            'message' => 'API is running',
+            'available_endpoints' => ['test', 'users']
+        ]);
 }
