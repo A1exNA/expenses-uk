@@ -144,11 +144,6 @@ const Checks = () => {
     setShowItemsModal(true);
   };
 
-  const handleAddItem = () => {
-    setEditingItem(null);
-    setItemForm({ text: '', price: '', quantity: '' });
-  };
-
   const handleEditItem = (item) => {
     setEditingItem(item);
     setItemForm({
