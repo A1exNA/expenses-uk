@@ -1,0 +1,24 @@
+# PHP
+/vendor/
+composer.lock
+composer.phar
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backend specific
+/backend/config/database.php  # (чтобы не коммитить пароли)
+/backend/*.log
+
+# Frontend (если появится позже)
+/node_modules/
+/build/
+/frontend/.env
+/frontend/.env.local
