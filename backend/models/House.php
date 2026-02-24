@@ -42,18 +42,9 @@ class House {
 
     public function update($id, $data) {
         $stmt = $this->db->prepare(
-            "UPDATE objects SET object_address = ?, object_area = ?, management_fee = ?, current_repair_rate = ?, service_start_date = ? 
-             WHERE id = ?"
+            "UPDATE objects SET object_address = ?, object_area = ?, management_fee = ?, current_repair_rate = ?, service_start_date = ? WHERE id = ?"
         );
-        $stmt->bind_param(
-            "sdddssi", 
-            $data['object_address'], 
-            $data['object_area'], 
-            $data['management_fee'], 
-            $data['current_repair_rate'], 
-            $data['service_start_date'],
-            $id
-        );
+        $stmt->bind_param("sdddsi", $data['object_address'], $data['object_area'], $data['management_fee'], $data['current_repair_rate'], $data['service_start_date'], $id);
         $stmt->execute();
         return $stmt->affected_rows > 0;
     }
