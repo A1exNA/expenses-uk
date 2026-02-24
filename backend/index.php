@@ -4,13 +4,11 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
-// Обработка preflight запросов (OPTIONS)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
-// Автозагрузка классов
 spl_autoload_register(function ($class) {
     $prefix = 'controllers\\';
     $base_dir = __DIR__ . '/controllers/';
@@ -46,13 +44,11 @@ spl_autoload_register(function ($class) {
     }
 });
 
-// Подключение к БД
 require_once __DIR__ . '/config/database.php';
 $db = getDB();
 
-// Получаем путь запроса
 $request = $_SERVER['REQUEST_URI'];
-$base = '/backend/'; // Для https://expenses-uk/backend/ это верно
+$base = '/backend/';
 
 $path = parse_url($request, PHP_URL_PATH);
 if (strpos($path, $base) === 0) {
@@ -64,7 +60,6 @@ $segments = explode('/', $path);
 $resource = $segments[0] ?? '';
 $id = $segments[1] ?? null;
 
-// Маршрутизация
 switch ($resource) {
     case 'test':
         echo json_encode(['status' => 'ok', 'message' => 'API is working']);
@@ -73,7 +68,6 @@ switch ($resource) {
     case 'users':
         $controller = new controllers\UserController($db);
         $method = $_SERVER['REQUEST_METHOD'];
-        
         if ($method === 'GET' && $id === null) {
             $controller->index();
         } elseif ($method === 'GET' && $id !== null) {
@@ -85,13 +79,31 @@ switch ($resource) {
         } elseif ($method === 'DELETE' && $id !== null) {
             $controller->destroy($id);
         } else {
-            Response::error('Method not allowed or invalid route', 405);
+            utils\Response::error('Method not allowed or invalid route', 405);
+        }
+        break;
+    
+    case 'objects':
+        $controller = new controllers\HouseController($db);
+        $method = $_SERVER['REQUEST_METHOD'];
+        if ($method === 'GET' && $id === null) {
+            $controller->index();
+        } elseif ($method === 'GET' && $id !== null) {
+            $controller->show($id);
+        } elseif ($method === 'POST' && $id === null) {
+            $controller->store();
+        } elseif ($method === 'PUT' && $id !== null) {
+            $controller->update($id);
+        } elseif ($method === 'DELETE' && $id !== null) {
+            $controller->destroy($id);
+        } else {
+            utils\Response::error('Method not allowed or invalid route', 405);
         }
         break;
     
     default:
         echo json_encode([
             'message' => 'API is running',
-            'available_endpoints' => ['test', 'users']
+            'available_endpoints' => ['test', 'users', 'objects']
         ]);
 }
