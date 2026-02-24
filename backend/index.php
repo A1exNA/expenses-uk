@@ -4,13 +4,11 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
-// Обработка preflight запросов (OPTIONS)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
-// Автозагрузка классов
 spl_autoload_register(function ($class) {
     $prefix = 'controllers\\';
     $base_dir = __DIR__ . '/controllers/';
@@ -46,13 +44,11 @@ spl_autoload_register(function ($class) {
     }
 });
 
-// Подключение к БД
 require_once __DIR__ . '/config/database.php';
 $db = getDB();
 
-// Получаем путь запроса
 $request = $_SERVER['REQUEST_URI'];
-$base = '/backend/'; // Для https://expenses-uk/backend/ это верно
+$base = '/backend/';
 
 $path = parse_url($request, PHP_URL_PATH);
 if (strpos($path, $base) === 0) {
@@ -63,6 +59,8 @@ $segments = explode('/', $path);
 
 $resource = $segments[0] ?? '';
 $id = $segments[1] ?? null;
+$subResource = $segments[2] ?? null;
+$subId = $segments[3] ?? null;
 
 // Маршрутизация
 switch ($resource) {
@@ -124,9 +122,52 @@ switch ($resource) {
         }
         break;
     
+    case 'bills':
+        $controller = new controllers\BillController($db);
+        $method = $_SERVER['REQUEST_METHOD'];
+        
+        // Вложенные маршруты для позиций
+        if ($subResource === 'items') {
+            // /bills/{billId}/items[/{itemId}]
+            if ($method === 'GET' && $subId === null) {
+                // GET /bills/{id}/items
+                $controller->itemsIndex($id);
+            } elseif ($method === 'GET' && $subId !== null) {
+                // GET /bills/{id}/items/{itemId}
+                $controller->itemsShow($id, $subId);
+            } elseif ($method === 'POST' && $subId === null) {
+                // POST /bills/{id}/items
+                $controller->itemsStore($id);
+            } elseif ($method === 'PUT' && $subId !== null) {
+                // PUT /bills/{id}/items/{itemId}
+                $controller->itemsUpdate($id, $subId);
+            } elseif ($method === 'DELETE' && $subId !== null) {
+                // DELETE /bills/{id}/items/{itemId}
+                $controller->itemsDestroy($id, $subId);
+            } else {
+                utils\Response::error('Method not allowed or invalid route for items', 405);
+            }
+        } else {
+            // Основные маршруты для счетов
+            if ($method === 'GET' && $id === null) {
+                $controller->index();
+            } elseif ($method === 'GET' && $id !== null) {
+                $controller->show($id);
+            } elseif ($method === 'POST' && $id === null) {
+                $controller->store();
+            } elseif ($method === 'PUT' && $id !== null) {
+                $controller->update($id);
+            } elseif ($method === 'DELETE' && $id !== null) {
+                $controller->destroy($id);
+            } else {
+                utils\Response::error('Method not allowed or invalid route', 405);
+            }
+        }
+        break;
+    
     default:
         echo json_encode([
             'message' => 'API is running',
-            'available_endpoints' => ['test', 'users', 'objects', 'spending-groups']
+            'available_endpoints' => ['test', 'users', 'objects', 'spending-groups', 'bills']
         ]);
 }
