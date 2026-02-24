@@ -192,9 +192,27 @@ switch ($resource) {
         }
         break;
     
+    case 'deposits':
+        $controller = new controllers\DepositController($db);
+        $method = $_SERVER['REQUEST_METHOD'];
+        if ($method === 'GET' && $id === null) {
+            $controller->index();
+        } elseif ($method === 'GET' && $id !== null) {
+            $controller->show($id);
+        } elseif ($method === 'POST' && $id === null) {
+            $controller->store();
+        } elseif ($method === 'PUT' && $id !== null) {
+            $controller->update($id);
+        } elseif ($method === 'DELETE' && $id !== null) {
+            $controller->destroy($id);
+        } else {
+            utils\Response::error('Method not allowed or invalid route', 405);
+        }
+        break;
+    
     default:
         echo json_encode([
             'message' => 'API is running',
-            'available_endpoints' => ['test', 'users', 'objects', 'spending-groups', 'bills', 'checks']
+            'available_endpoints' => ['test', 'users', 'objects', 'spending-groups', 'bills', 'checks', 'deposits']
         ]);
 }
