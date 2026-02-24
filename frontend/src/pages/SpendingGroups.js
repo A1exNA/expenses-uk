@@ -70,7 +70,8 @@ const SpendingGroups = () => {
     if (!window.confirm('Вы уверены, что хотите удалить эту группу расходов?')) return;
     try {
       await apiDelete(`/spending-groups/${id}`);
-      setGroups(groups.filter(g => g.id !== id));
+      // Перезагружаем список после удаления
+      await fetchGroups();
     } catch (err) {
       alert('Ошибка при удалении: ' + err.message);
     }
@@ -88,7 +89,7 @@ const SpendingGroups = () => {
         object_id: parseInt(formData.object_id),
         text: formData.text.trim()
       };
-    
+
       if (editingGroup) {
         await apiPut(`/spending-groups/${editingGroup.id}`, payload);
       } else {
