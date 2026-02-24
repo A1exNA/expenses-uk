@@ -20,70 +20,72 @@
 }
 
 .modal {
-  background-color: var(--color-white);
-  border-radius: var(--border-radius);
-  width: var(--modal-width);
+  background-color: var(--card-bg, #ffffff);
+  border-radius: 20px;
+  width: var(--modal-width, 500px);
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: var(--shadow-lg);
-  animation: slideIn 0.2s ease;
+  box-shadow: var(--shadow-lg, 0 10px 40px rgba(0, 0, 0, 0.1));
+  animation: slideIn 0.3s ease;
+  border: 1px solid var(--gray-lighter, #e2e8f0);
 }
 
 @keyframes slideIn {
   from {
-    transform: translateY(-20px);
     opacity: 0;
+    transform: translateY(20px);
   }
   to {
-    transform: translateY(0);
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-bottom: 1px solid var(--color-gray-light);
+  background-color: var(--bg-sidebar, #0f172a); /* цвет фона сайдбара */
+  padding: 20px 24px;
+  border-radius: 20px 20px 0 0;
+  color: var(--sidebar-text, #f1f5f9); /* цвет текста сайдбара */
 }
 
 .title {
   margin: 0;
-  font-size: var(--font-size-lg);
-  color: var(--color-primary);
+  font-size: 1.25rem;
   font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .closeButton {
-  background: none;
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  background: rgba(255, 255, 255, 0.2);
   border: none;
-  font-size: var(--font-size-xl);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  line-height: 1;
   cursor: pointer;
-  color: var(--color-gray);
-  padding: 0;
-  width: 30px;
-  height: 30px;
+  color: var(--sidebar-text, #ffffff);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
+  transition: background 0.2s;
 }
 
 .closeButton:hover {
-  background-color: var(--color-gray-light);
-  color: var(--color-danger);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .content {
-  padding: var(--spacing-lg);
+  padding: 24px;
 }
 
 .footer {
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-top: 1px solid var(--color-gray-light);
+  padding: 16px 24px;
+  border-top: 1px solid var(--gray-light, #e2e8f0);
   display: flex;
   justify-content: flex-end;
-  gap: var(--spacing-sm);
+  gap: 12px;
 }

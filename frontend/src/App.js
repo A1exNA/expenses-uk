@@ -15,9 +15,9 @@ function App() {
   return (
     <Router>
       <div className="app">
-        <Header />
-        <div className="main-content">
-          <Sidebar />
+        <Sidebar />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <Header />
           <main className="page-content">
             <Routes>
               <Route path="/" element={<Dashboard />} />

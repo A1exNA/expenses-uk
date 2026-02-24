@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import './variables.css';
 
 * {
@@ -9,9 +10,11 @@
 body {
   font-family: var(--font-family);
   font-size: var(--font-size-md);
-  color: var(--color-dark);
-  background-color: var(--color-gray-light);
-  line-height: 1.5;
+  color: var(--dark);
+  background-color: var(--bg-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .app {
@@ -28,6 +31,36 @@ body {
 .page-content {
   flex: 1;
   padding: var(--spacing-lg);
-  background-color: var(--color-gray-light);
+  background-color: var(--bg-body);
   overflow-y: auto;
+  margin-left: var(--sidebar-width);
+}
+
+/* Скроллбар */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--light);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-light);
+  border-radius: var(--border-radius);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray);
+}
+
+/* Утилиты для анимаций */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease;
 }

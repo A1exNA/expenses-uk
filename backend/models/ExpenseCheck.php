@@ -21,6 +21,11 @@ class ExpenseCheck {
         return $result->fetch_all(MYSQLI_ASSOC);
     }
 
+		public function getAll() {
+				$result = $this->db->query("SELECT * FROM expense_checks ORDER BY id DESC");
+				return $result->fetch_all(MYSQLI_ASSOC);
+		}
+
     /**
      * Получить позицию по ID
      */

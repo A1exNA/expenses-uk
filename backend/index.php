@@ -1,9 +1,15 @@
 <?php
-header("Content-Type: application/json");
+
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+// Разрешаем запросы с любого источника (для разработки)
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
+header("Access-Control-Allow-Credentials: true");
 
+// Если это preflight запрос (OPTIONS), завершаем его сразу
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -191,6 +197,11 @@ switch ($resource) {
             }
         }
         break;
+
+		case 'expense-checks':
+				$controller = new controllers\CheckController($db);
+				$controller->allItems();
+				break;
     
     case 'deposits':
         $controller = new controllers\DepositController($db);

@@ -1,0 +1,42 @@
+@import '../../../styles/variables.css';
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Варианты */
+.primary {
+  background-color: var(--primary-light);
+  color: var(--white);
+}
+
+.success {
+  background-color: var(--success);
+  color: var(--white);
+}
+
+.danger {
+  background-color: var(--danger);
+  color: var(--white);
+}
+
+.warning {
+  background-color: var(--warning);
+  color: var(--dark);
+}
+
+.info {
+  background-color: var(--info);
+  color: var(--white);
+}
+
+.neutral {
+  background-color: var(--gray-lighter);
+  color: var(--gray-dark);
+}

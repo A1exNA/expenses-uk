@@ -30,6 +30,11 @@ class CheckController {
         Response::json($checks);
     }
 
+		public function allItems() {
+				$items = $this->expenseCheckModel->getAll(); // нужно создать метод в модели
+				Response::json($items);
+		}
+
     /**
      * GET /checks/{id} – конкретный чек
      */

@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
+import '../styles/utils.css';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -7,13 +9,14 @@ const Users = () => {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' или 'table'
+  const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const [formData, setFormData] = useState({
     user_name: '',
     user_post: '',
     email: ''
   });
 
-  // Загрузка списка сотрудников
   const fetchUsers = async () => {
     setLoading(true);
     setError(null);
@@ -31,20 +34,46 @@ const Users = () => {
     fetchUsers();
   }, []);
 
-  // Обработка изменения полей формы
+  // Сортировка
+  const sortedUsers = useMemo(() => {
+    const sortableItems = [...users];
+    sortableItems.sort((a, b) => {
+      let aVal, bVal;
+      switch (sortConfig.key) {
+        case 'name':
+          aVal = a.user_name || '';
+          bVal = b.user_name || '';
+          break;
+        case 'post':
+          aVal = a.user_post || '';
+          bVal = b.user_post || '';
+          break;
+        case 'email':
+          aVal = a.email || '';
+          bVal = b.email || '';
+          break;
+        default:
+          aVal = a.id;
+          bVal = b.id;
+      }
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sortableItems;
+  }, [users, sortConfig]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Открыть модалку для создания
   const handleAdd = () => {
     setEditingUser(null);
     setFormData({ user_name: '', user_post: '', email: '' });
     setShowModal(true);
   };
 
-  // Открыть модалку для редактирования
   const handleEdit = (user) => {
     setEditingUser(user);
     setFormData({
@@ -55,34 +84,24 @@ const Users = () => {
     setShowModal(true);
   };
 
-  // Удаление сотрудника
   const handleDelete = async (id) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этого сотрудника?')) return;
+    if (!window.confirm('Удалить сотрудника?')) return;
     try {
       await apiDelete(`/users/${id}`);
       setUsers(users.filter(u => u.id !== id));
     } catch (err) {
-      alert('Ошибка при удалении: ' + err.message);
+      alert('Ошибка удаления: ' + err.message);
     }
   };
 
-  // Сохранение (создание или обновление)
   const handleSave = async (e) => {
     e.preventDefault();
     try {
-      // Валидация email на фронте (необязательно, но для удобства)
-      if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-        alert('Введите корректный email или оставьте поле пустым');
-        return;
-      }
-
-      // Если email пустой, отправляем пустую строку (бэкенд примет)
       const payload = {
         user_name: formData.user_name.trim(),
         user_post: formData.user_post.trim(),
         email: formData.email.trim() || ''
       };
-
       if (editingUser) {
         const updated = await apiPut(`/users/${editingUser.id}`, payload);
         setUsers(users.map(u => u.id === editingUser.id ? updated : u));
@@ -96,104 +115,131 @@ const Users = () => {
     }
   };
 
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const handleSortChange = (e) => {
+    const [key, direction] = e.target.value.split('-');
+    setSortConfig({ key, direction });
+  };
+
   if (loading && users.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>Сотрудники</h2>
-        <button onClick={handleAdd} style={{ padding: '8px 16px', background: '#2c3e50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-          Добавить сотрудника
-        </button>
+    <div className="fade-in">
+      <div className="flex-between mb-3">
+        <h2 style={{ fontSize: 'var(--font-size-2xl)' }}>Сотрудники</h2>
+        <div className="flex gap-1">
+          <Button variant={viewMode === 'cards' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('cards')}>
+            Карточки
+          </Button>
+          <Button variant={viewMode === 'table' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('table')}>
+            Таблица
+          </Button>
+          <Button variant="primary" onClick={handleAdd}>+ Добавить</Button>
+        </div>
       </div>
 
-      {users.length === 0 ? (
-        <p>Нет ни одного сотрудника. Добавьте первого сотрудника.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white' }}>
-          <thead>
-            <tr style={{ background: '#34495e', color: 'white' }}>
-              <th style={{ padding: '10px', textAlign: 'left' }}>Имя</th>
-              <th style={{ padding: '10px', textAlign: 'left' }}>Должность</th>
-              <th style={{ padding: '10px', textAlign: 'left' }}>Email</th>
-              <th style={{ padding: '10px', textAlign: 'center' }}>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(user => (
-              <tr key={user.id} style={{ borderBottom: '1px solid #ddd' }}>
-                <td style={{ padding: '10px' }}>{user.user_name}</td>
-                <td style={{ padding: '10px' }}>{user.user_post}</td>
-                <td style={{ padding: '10px' }}>{user.email || '—'}</td>
-                <td style={{ padding: '10px', textAlign: 'center' }}>
-                  <button onClick={() => handleEdit(user)} style={{ marginRight: '8px', padding: '4px 8px', background: '#f39c12', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer' }}>
-                    Ред.
-                  </button>
-                  <button onClick={() => handleDelete(user.id)} style={{ padding: '4px 8px', background: '#e74c3c', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer' }}>
-                    Удал.
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* Модальное окно */}
-      {showModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{ background: 'white', padding: '20px', borderRadius: '8px', width: '400px' }}>
-            <h3>{editingUser ? 'Редактировать сотрудника' : 'Новый сотрудник'}</h3>
-            <form onSubmit={handleSave}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Имя:</label>
-                <input
-                  type="text"
-                  name="user_name"
-                  value={formData.user_name}
-                  onChange={handleInputChange}
-                  required
-                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Должность:</label>
-                <input
-                  type="text"
-                  name="user_post"
-                  value={formData.user_post}
-                  onChange={handleInputChange}
-                  required
-                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Email (необязательно):</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{ padding: '8px 16px', background: '#95a5a6', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer' }}>
-                  Отмена
-                </button>
-                <button type="submit" style={{ padding: '8px 16px', background: '#27ae60', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer' }}>
-                  Сохранить
-                </button>
-              </div>
-            </form>
+      {/* Сортировка для карточек */}
+      {viewMode === 'cards' && (
+        <div className="flex-between mb-3">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray)' }}>Сортировать:</span>
+            <select onChange={handleSortChange} value={`${sortConfig.key}-${sortConfig.direction}`} className="input" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '200px' }}>
+              <option value="id-asc">По умолчанию (ID ↑)</option>
+              <option value="name-asc">Имя (А-Я)</option>
+              <option value="name-desc">Имя (Я-А)</option>
+              <option value="post-asc">Должность (А-Я)</option>
+              <option value="post-desc">Должность (Я-А)</option>
+              <option value="email-asc">Email (А-Я)</option>
+              <option value="email-desc">Email (Я-А)</option>
+            </select>
           </div>
         </div>
       )}
+
+      {sortedUsers.length === 0 ? (
+        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет сотрудников. Добавьте первого.</p></Card>
+      ) : viewMode === 'cards' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-lg)' }}>
+          {sortedUsers.map(user => (
+            <Card key={user.id} className="fade-in">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--spacing-md)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-lg)', margin: 0, color: 'var(--primary)' }}>{user.user_name}</h3>
+                <Badge variant="neutral">ID: {user.id}</Badge>
+              </div>
+              <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Должность</div>
+                <div style={{ fontSize: 'var(--font-size-md)' }}>{user.user_post}</div>
+              </div>
+              <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Email</div>
+                <div style={{ fontSize: 'var(--font-size-md)' }}>{user.email || '—'}</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
+                <Button variant="warning" size="small" onClick={() => handleEdit(user)}>✎ Ред.</Button>
+                <Button variant="danger" size="small" onClick={() => handleDelete(user.id)}>× Удал.</Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid var(--light)' }}>
+                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('name')}>
+                  Имя {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('post')}>
+                  Должность {sortConfig.key === 'post' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('email')}>
+                  Email {sortConfig.key === 'email' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedUsers.map(user => (
+                <tr key={user.id} style={{ borderBottom: '1px solid var(--light)' }}>
+                  <td style={{ padding: 'var(--spacing-sm)' }}>{user.user_name}</td>
+                  <td style={{ padding: 'var(--spacing-sm)' }}>{user.user_post}</td>
+                  <td style={{ padding: 'var(--spacing-sm)' }}>{user.email || '—'}</td>
+                  <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
+                    <Button variant="warning" size="small" onClick={() => handleEdit(user)}>Ред.</Button>
+                    <Button variant="danger" size="small" onClick={() => handleDelete(user.id)}>Удал.</Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editingUser ? 'Редактировать сотрудника' : 'Новый сотрудник'}
+        footer={
+          <>
+            <Button variant="neutral" onClick={() => setShowModal(false)}>Отмена</Button>
+            <Button variant="success" type="submit" form="userForm">Сохранить</Button>
+          </>
+        }
+      >
+        <form id="userForm" onSubmit={handleSave}>
+          <Input label="Имя" name="user_name" value={formData.user_name} onChange={handleInputChange} required />
+          <Input label="Должность" name="user_post" value={formData.user_post} onChange={handleInputChange} required />
+          <Input label="Email" type="email" name="email" value={formData.email} onChange={handleInputChange} />
+        </form>
+      </Modal>
     </div>
   );
 };

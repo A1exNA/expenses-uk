@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Modal, Input, Table } from '../components/ui';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import '../styles/utils.css';
 
@@ -9,6 +9,8 @@ const Objects = () => {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingObject, setEditingObject] = useState(null);
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' или 'table'
+  const [sortConfig, setSortConfig] = useState({ key: 'address', direction: 'asc' });
   const [formData, setFormData] = useState({
     object_address: '',
     object_area: '',
@@ -33,6 +35,46 @@ const Objects = () => {
   useEffect(() => {
     fetchObjects();
   }, []);
+
+  // Сортировка объектов
+  const sortedObjects = useMemo(() => {
+    const sortableItems = [...objects];
+    sortableItems.sort((a, b) => {
+      let aVal, bVal;
+
+      switch (sortConfig.key) {
+				case 'address':
+					const cleanAddress = (addr) => {
+						return addr
+							.replace(/^г\.?\s*Тверь,\s*/i, '')
+							.replace(/^(ул\. 2-я|пер\.|бул\.|пр\.|ул\.)\s+/i, '');
+					};
+					aVal = cleanAddress(a.object_address);
+					bVal = cleanAddress(b.object_address);
+					break;
+        case 'area':
+          aVal = Number(a.object_area);
+          bVal = Number(b.object_area);
+          break;
+        case 'management_total':
+          aVal = Number(a.management_fee) * Number(a.object_area);
+          bVal = Number(b.management_fee) * Number(b.object_area);
+          break;
+        case 'repair_total':
+          aVal = Number(a.current_repair_rate) * Number(a.object_area);
+          bVal = Number(b.current_repair_rate) * Number(b.object_area);
+          break;
+        default:
+          aVal = a.id;
+          bVal = b.id;
+      }
+
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sortableItems;
+  }, [objects, sortConfig]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -96,49 +138,219 @@ const Objects = () => {
     }
   };
 
+  // Обработчик сортировки для таблицы
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Для карточек используем выпадающий список
+  const handleSortChange = (e) => {
+    const [key, direction] = e.target.value.split('-');
+    setSortConfig({ key, direction });
+  };
+
   const formatDate = (dateStr) => {
     return dateStr.split('-').reverse().join('.');
   };
 
-  const columns = [
-    { title: 'Адрес', field: 'object_address' },
-    { title: 'Площадь (м²)', field: 'object_area', align: 'right', render: (obj) => Number(obj.object_area).toFixed(2) },
-    { title: 'Ставка управления (руб/м²)', field: 'management_fee', align: 'right', render: (obj) => Number(obj.management_fee).toFixed(2) },
-    { title: 'Ставка ремонта (руб/м²)', field: 'current_repair_rate', align: 'right', render: (obj) => Number(obj.current_repair_rate).toFixed(2) },
-    { title: 'Дата начала', field: 'service_start_date', render: (obj) => formatDate(obj.service_start_date) },
-    { 
-      title: 'Действия', 
-      align: 'center',
-      render: (obj) => (
-        <div className="flex gap-1" style={{ justifyContent: 'center' }}>
-          <Button variant="warning" size="small" onClick={() => handleEdit(obj)}>
-            Ред.
-          </Button>
-          <Button variant="danger" size="small" onClick={() => handleDelete(obj.id)}>
-            Удал.
-          </Button>
-        </div>
-      )
-    }
-  ];
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value));
+  };
 
   if (loading && objects.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
 
   return (
-    <div>
+    <div className="fade-in">
       <div className="flex-between mb-3">
-        <h2>Дома (объекты)</h2>
-        <Button variant="primary" onClick={handleAdd}>
-          Добавить дом
-        </Button>
+        <h2 style={{ fontSize: 'var(--font-size-2xl)', color: 'var(--dark)' }}>
+          Дома (объекты)
+        </h2>
+        <div className="flex gap-1">
+          <Button 
+            variant={viewMode === 'cards' ? 'primary' : 'outline'} 
+            size="small"
+            onClick={() => setViewMode('cards')}
+          >
+            Карточки
+          </Button>
+          <Button 
+            variant={viewMode === 'table' ? 'primary' : 'outline'} 
+            size="small"
+            onClick={() => setViewMode('table')}
+          >
+            Таблица
+          </Button>
+          <Button variant="primary" onClick={handleAdd}>
+            + Добавить дом
+          </Button>
+        </div>
       </div>
 
-      <Table 
-        columns={columns} 
-        data={objects} 
-        emptyMessage="Нет ни одного дома. Добавьте первый дом."
-      />
+      {/* Элементы управления сортировкой */}
+      <div className="flex-between mb-3">
+        {viewMode === 'cards' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray)' }}>Сортировать:</span>
+            <select 
+              onChange={handleSortChange} 
+              value={`${sortConfig.key}-${sortConfig.direction}`}
+              style={{ 
+                padding: 'var(--spacing-xs) var(--spacing-sm)', 
+                borderRadius: 'var(--border-radius)', 
+                border: '1px solid var(--gray-light)',
+                fontSize: 'var(--font-size-sm)'
+              }}
+            >
+              <option value="id-asc">По умолчанию (ID ↑)</option>
+              <option value="address-asc">Адрес (А-Я)</option>
+              <option value="address-desc">Адрес (Я-А)</option>
+              <option value="area-asc">Площадь (по возрастанию)</option>
+              <option value="area-desc">Площадь (по убыванию)</option>
+              <option value="management_total-asc">Общая ставка управления (возр.)</option>
+              <option value="management_total-desc">Общая ставка управления (уб.)</option>
+              <option value="repair_total-asc">Общая ставка ремонта (возр.)</option>
+              <option value="repair_total-desc">Общая ставка ремонта (уб.)</option>
+            </select>
+          </div>
+        )}
+        {viewMode === 'table' && (
+          <div style={{ flex: 1 }}></div> // пустой div для выравнивания
+        )}
+      </div>
+
+      {sortedObjects.length === 0 ? (
+        <Card>
+          <p style={{ textAlign: 'center', color: 'var(--gray)' }}>
+            Нет ни одного дома. Добавьте первый дом.
+          </p>
+        </Card>
+      ) : viewMode === 'cards' ? (
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', 
+          gap: 'var(--spacing-lg)'
+        }}>
+          {sortedObjects.map(obj => (
+            <Card key={obj.id} className="fade-in">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--spacing-md)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-lg)', margin: 0, color: 'var(--primary)' }}>
+                  {obj.object_address}
+                </h3>
+                <Badge variant="neutral">ID: {obj.id}</Badge>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+                <div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Площадь</div>
+                  <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>{Number(obj.object_area).toFixed(2)} м²</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Дата начала</div>
+                  <div>{formatDate(obj.service_start_date)}</div>
+                </div>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+                <div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Ставка управления</div>
+                  <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 500, color: 'var(--success)' }}>
+                    {formatCurrency(obj.management_fee)} ₽/м²
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Ставка ремонта</div>
+                  <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 500, color: 'var(--warning)' }}>
+                    {formatCurrency(obj.current_repair_rate)} ₽/м²
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-lg)' }}>
+                <div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Всего управление</div>
+                  <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600 }}>
+                    {formatCurrency(Number(obj.management_fee) * Number(obj.object_area))} ₽/мес
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Всего ремонт</div>
+                  <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 600 }}>
+                    {formatCurrency(Number(obj.current_repair_rate) * Number(obj.object_area))} ₽/мес
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
+                <Button variant="warning" size="small" onClick={() => handleEdit(obj)}>
+                  ✎ Редактировать
+                </Button>
+                <Button variant="danger" size="small" onClick={() => handleDelete(obj.id)}>
+                  × Удалить
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid var(--light)' }}>
+                <th 
+                  style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }}
+                  onClick={() => requestSort('address')}
+                >
+                  Адрес {sortConfig.key === 'address' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th 
+                  style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }}
+                  onClick={() => requestSort('area')}
+                >
+                  Площадь {sortConfig.key === 'area' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th 
+                  style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }}
+                  onClick={() => requestSort('management_total')}
+                >
+                  Управление (общ.) {sortConfig.key === 'management_total' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th 
+                  style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }}
+                  onClick={() => requestSort('repair_total')}
+                >
+                  Ремонт (общ.) {sortConfig.key === 'repair_total' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)' }}>Дата</th>
+                <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedObjects.map(obj => (
+                <tr key={obj.id} style={{ borderBottom: '1px solid var(--light)' }}>
+                  <td style={{ padding: 'var(--spacing-sm)' }}>{obj.object_address}</td>
+                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{Number(obj.object_area).toFixed(2)} м²</td>
+                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>
+                    {formatCurrency(Number(obj.management_fee) * Number(obj.object_area))} ₽
+                  </td>
+                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>
+                    {formatCurrency(Number(obj.current_repair_rate) * Number(obj.object_area))} ₽
+                  </td>
+                  <td style={{ padding: 'var(--spacing-sm)' }}>{formatDate(obj.service_start_date)}</td>
+                  <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
+                    <Button variant="warning" size="small" onClick={() => handleEdit(obj)}>Ред.</Button>
+                    <Button variant="danger" size="small" onClick={() => handleDelete(obj.id)}>Удал.</Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
 
       <Modal
         isOpen={showModal}

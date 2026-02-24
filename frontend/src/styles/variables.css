@@ -1,39 +1,63 @@
 :root {
-  /* Цветовая схема */
-  --color-primary: #2c3e50;
-  --color-primary-dark: #1a252f;
-  --color-secondary: #34495e;
-  --color-success: #27ae60;
-  --color-danger: #e74c3c;
-  --color-warning: #f39c12;
-  --color-info: #3498db;
-  --color-light: #ecf0f1;
-  --color-dark: #2c3e50;
-  --color-gray: #95a5a6;
-  --color-gray-light: #f5f5f5;
-  --color-white: #ffffff;
+  /* Основные цвета */
+  --primary: #4361ee;
+  --primary-dark: #3a56d4;
+  --primary-light: #4895ef;
+  --secondary: #4cc9f0;
+  --success: #06d6a0;
+  --danger: #ef476f;
+  --warning: #ffd166;
+  --info: #118ab2;
+  
+  /* Нейтральные цвета */
+  --dark: #1e293b;
+  --gray-dark: #334155;
+  --gray: #64748b;
+  --gray-light: #94a3b8;
+  --gray-lighter: #cbd5e1;
+  --light: #f1f5f9;
+  --lighter: #f8fafc;
+  --white: #ffffff;
+  
+  /* Фоны */
+  --bg-body: #f0f2f5;
+  --bg-card: var(--white);
+  --bg-sidebar: #1e1e2f;
+  --bg-header: var(--white);
   
   /* Отступы */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
-  --spacing-lg: 20px;
-  --spacing-xl: 24px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
   
   /* Размеры */
-  --border-radius: 4px;
-  --modal-width: 500px;
-  --sidebar-width: 220px;
+  --border-radius-sm: 6px;
+  --border-radius: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-xl: 16px;
+  
+  --sidebar-width: 260px;
+  --header-height: 70px;
   
   /* Тени */
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
-  --shadow-md: 0 3px 6px rgba(0,0,0,0.15);
-  --shadow-lg: 0 10px 20px rgba(0,0,0,0.15);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
   
   /* Шрифты */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-md: 1rem;
-  --font-size-lg: 1.25rem;
-  --font-size-xl: 1.5rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  
+  /* Анимации */
+  --transition: all 0.2s ease;
 }

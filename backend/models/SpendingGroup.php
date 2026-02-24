@@ -10,9 +10,6 @@ class SpendingGroup {
         $this->db = $db;
     }
 
-    /**
-     * Получить все группы расходов (можно фильтровать по object_id)
-     */
     public function getAll($objectId = null) {
         if ($objectId) {
             $stmt = $this->db->prepare("SELECT * FROM spending_groups WHERE object_id = ? ORDER BY id DESC");
@@ -25,9 +22,6 @@ class SpendingGroup {
         return $result->fetch_all(MYSQLI_ASSOC);
     }
 
-    /**
-     * Получить группу по ID
-     */
     public function getById($id) {
         $stmt = $this->db->prepare("SELECT * FROM spending_groups WHERE id = ?");
         $stmt->bind_param("i", $id);
@@ -36,33 +30,33 @@ class SpendingGroup {
         return $result->fetch_assoc();
     }
 
-    /**
-     * Создать новую группу расходов
-     */
     public function create($data) {
-        $stmt = $this->db->prepare(
-            "INSERT INTO spending_groups (object_id, text) VALUES (?, ?)"
-        );
-        $stmt->bind_param("is", $data['object_id'], $data['text']);
+        // Если object_id пустой, вставляем NULL напрямую в SQL
+        if (isset($data['object_id']) && $data['object_id'] !== null && $data['object_id'] !== '') {
+            $object_id = (int)$data['object_id'];
+            $stmt = $this->db->prepare("INSERT INTO spending_groups (object_id, text) VALUES (?, ?)");
+            $stmt->bind_param("is", $object_id, $data['text']);
+        } else {
+            $stmt = $this->db->prepare("INSERT INTO spending_groups (object_id, text) VALUES (NULL, ?)");
+            $stmt->bind_param("s", $data['text']);
+        }
         $stmt->execute();
         return $this->db->insert_id;
     }
 
-    /**
-     * Обновить группу расходов
-     */
     public function update($id, $data) {
-        $stmt = $this->db->prepare(
-            "UPDATE spending_groups SET object_id = ?, text = ? WHERE id = ?"
-        );
-        $stmt->bind_param("isi", $data['object_id'], $data['text'], $id);
+        if (isset($data['object_id']) && $data['object_id'] !== null && $data['object_id'] !== '') {
+            $object_id = (int)$data['object_id'];
+            $stmt = $this->db->prepare("UPDATE spending_groups SET object_id = ?, text = ? WHERE id = ?");
+            $stmt->bind_param("isi", $object_id, $data['text'], $id);
+        } else {
+            $stmt = $this->db->prepare("UPDATE spending_groups SET object_id = NULL, text = ? WHERE id = ?");
+            $stmt->bind_param("si", $data['text'], $id);
+        }
         $stmt->execute();
         return $stmt->affected_rows > 0;
     }
 
-    /**
-     * Удалить группу расходов
-     */
     public function delete($id) {
         $stmt = $this->db->prepare("DELETE FROM spending_groups WHERE id = ?");
         $stmt->bind_param("i", $id);
@@ -70,9 +64,6 @@ class SpendingGroup {
         return $stmt->affected_rows > 0;
     }
 
-    /**
-     * Проверить, существует ли объект (дом) с данным ID
-     */
     public function objectExists($objectId) {
         $stmt = $this->db->prepare("SELECT id FROM objects WHERE id = ?");
         $stmt->bind_param("i", $objectId);

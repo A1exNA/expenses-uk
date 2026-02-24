@@ -40,19 +40,25 @@ class SpendingGroupController {
             Response::error("Invalid JSON", 400);
         }
 
-        // Валидация
         $errors = [];
-        $errors[] = Validator::required($data['object_id'] ?? null, 'object_id');
+        // Только text обязателен
         $errors[] = Validator::required($data['text'] ?? null, 'text');
-        
-        // Проверка, что object_id существует
-        if (isset($data['object_id']) && !$this->groupModel->objectExists($data['object_id'])) {
-            $errors[] = "Object with id {$data['object_id']} does not exist";
+
+        // Если object_id передан и не пустой, проверяем существование объекта
+        if (!empty($data['object_id'])) {
+            if (!$this->groupModel->objectExists($data['object_id'])) {
+                $errors[] = "Object with id {$data['object_id']} does not exist";
+            }
         }
 
         $errors = array_filter($errors);
         if (!empty($errors)) {
             Response::error(['errors' => $errors], 422);
+        }
+
+        // Если object_id пустой или отсутствует, передаём null в модель
+        if (empty($data['object_id'])) {
+            $data['object_id'] = null;
         }
 
         $id = $this->groupModel->create($data);
@@ -69,24 +75,27 @@ class SpendingGroupController {
             Response::error("Invalid JSON", 400);
         }
 
-        // Проверяем существование группы
         $existing = $this->groupModel->getById($id);
         if (!$existing) {
             Response::error("Spending group not found", 404);
         }
 
-        // Валидация
         $errors = [];
-        $errors[] = Validator::required($data['object_id'] ?? null, 'object_id');
         $errors[] = Validator::required($data['text'] ?? null, 'text');
-        
-        if (isset($data['object_id']) && !$this->groupModel->objectExists($data['object_id'])) {
-            $errors[] = "Object with id {$data['object_id']} does not exist";
+
+        if (!empty($data['object_id'])) {
+            if (!$this->groupModel->objectExists($data['object_id'])) {
+                $errors[] = "Object with id {$data['object_id']} does not exist";
+            }
         }
 
         $errors = array_filter($errors);
         if (!empty($errors)) {
             Response::error(['errors' => $errors], 422);
+        }
+
+        if (empty($data['object_id'])) {
+            $data['object_id'] = null;
         }
 
         $updated = $this->groupModel->update($id, $data);
