@@ -159,11 +159,6 @@ const Bills = () => {
     setShowItemsModal(true);
   };
 
-  const handleAddItem = () => {
-    setEditingItem(null);
-    setItemForm({ text: '', price: '', quantity: '' });
-  };
-
   const handleEditItem = (item) => {
     setEditingItem(item);
     setItemForm({
@@ -423,9 +418,9 @@ const Bills = () => {
                   {items.map(item => (
                     <tr key={item.id} style={{ borderBottom: '1px solid #ddd' }}>
                       <td style={{ padding: '8px' }}>{item.text}</td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>{item.price.toFixed(2)}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{Number(item.price).toFixed(2)}</td>
                       <td style={{ padding: '8px', textAlign: 'right' }}>{item.quantity}</td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>{(item.price * item.quantity).toFixed(2)}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{(Number(item.price) * Number(item.quantity)).toFixed(2)}</td>
                       <td style={{ padding: '8px', textAlign: 'center' }}>
                         <button onClick={() => handleEditItem(item)} style={{ marginRight: '8px', padding: '2px 6px', background: '#f39c12', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer' }}>
                           Ред.
