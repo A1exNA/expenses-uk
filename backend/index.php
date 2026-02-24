@@ -126,29 +126,56 @@ switch ($resource) {
         $controller = new controllers\BillController($db);
         $method = $_SERVER['REQUEST_METHOD'];
         
-        // Вложенные маршруты для позиций
         if ($subResource === 'items') {
-            // /bills/{billId}/items[/{itemId}]
             if ($method === 'GET' && $subId === null) {
-                // GET /bills/{id}/items
                 $controller->itemsIndex($id);
             } elseif ($method === 'GET' && $subId !== null) {
-                // GET /bills/{id}/items/{itemId}
                 $controller->itemsShow($id, $subId);
             } elseif ($method === 'POST' && $subId === null) {
-                // POST /bills/{id}/items
                 $controller->itemsStore($id);
             } elseif ($method === 'PUT' && $subId !== null) {
-                // PUT /bills/{id}/items/{itemId}
                 $controller->itemsUpdate($id, $subId);
             } elseif ($method === 'DELETE' && $subId !== null) {
-                // DELETE /bills/{id}/items/{itemId}
                 $controller->itemsDestroy($id, $subId);
             } else {
                 utils\Response::error('Method not allowed or invalid route for items', 405);
             }
         } else {
-            // Основные маршруты для счетов
+            if ($method === 'GET' && $id === null) {
+                $controller->index();
+            } elseif ($method === 'GET' && $id !== null) {
+                $controller->show($id);
+            } elseif ($method === 'POST' && $id === null) {
+                $controller->store();
+            } elseif ($method === 'PUT' && $id !== null) {
+                $controller->update($id);
+            } elseif ($method === 'DELETE' && $id !== null) {
+                $controller->destroy($id);
+            } else {
+                utils\Response::error('Method not allowed or invalid route', 405);
+            }
+        }
+        break;
+    
+    case 'checks':
+        $controller = new controllers\CheckController($db);
+        $method = $_SERVER['REQUEST_METHOD'];
+        
+        if ($subResource === 'items') {
+            if ($method === 'GET' && $subId === null) {
+                $controller->itemsIndex($id);
+            } elseif ($method === 'GET' && $subId !== null) {
+                $controller->itemsShow($id, $subId);
+            } elseif ($method === 'POST' && $subId === null) {
+                $controller->itemsStore($id);
+            } elseif ($method === 'PUT' && $subId !== null) {
+                $controller->itemsUpdate($id, $subId);
+            } elseif ($method === 'DELETE' && $subId !== null) {
+                $controller->itemsDestroy($id, $subId);
+            } else {
+                utils\Response::error('Method not allowed or invalid route for items', 405);
+            }
+        } else {
             if ($method === 'GET' && $id === null) {
                 $controller->index();
             } elseif ($method === 'GET' && $id !== null) {
@@ -168,6 +195,6 @@ switch ($resource) {
     default:
         echo json_encode([
             'message' => 'API is running',
-            'available_endpoints' => ['test', 'users', 'objects', 'spending-groups', 'bills']
+            'available_endpoints' => ['test', 'users', 'objects', 'spending-groups', 'bills', 'checks']
         ]);
 }
