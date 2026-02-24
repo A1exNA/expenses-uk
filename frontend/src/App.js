@@ -9,16 +9,16 @@ import SpendingGroups from './pages/SpendingGroups';
 import Bills from './pages/Bills';
 import Checks from './pages/Checks';
 import Deposits from './pages/Deposits';
+import './styles/global.css';
 
-// Пока страницы будут пустыми заглушками, наполним их позже
 function App() {
   return (
     <Router>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <div className="app">
         <Header />
-        <div style={{ display: 'flex', flex: 1 }}>
+        <div className="main-content">
           <Sidebar />
-          <main style={{ flex: 1, padding: '20px', background: '#f5f5f5' }}>
+          <main className="page-content">
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/objects" element={<Objects />} />

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Button, Modal, Input, Table } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
+import '../styles/utils.css';
 
 const Objects = () => {
   const [objects, setObjects] = useState([]);
@@ -98,134 +100,106 @@ const Objects = () => {
     return dateStr.split('-').reverse().join('.');
   };
 
+  const columns = [
+    { title: 'Адрес', field: 'object_address' },
+    { title: 'Площадь (м²)', field: 'object_area', align: 'right', render: (obj) => Number(obj.object_area).toFixed(2) },
+    { title: 'Ставка управления (руб/м²)', field: 'management_fee', align: 'right', render: (obj) => Number(obj.management_fee).toFixed(2) },
+    { title: 'Ставка ремонта (руб/м²)', field: 'current_repair_rate', align: 'right', render: (obj) => Number(obj.current_repair_rate).toFixed(2) },
+    { title: 'Дата начала', field: 'service_start_date', render: (obj) => formatDate(obj.service_start_date) },
+    { 
+      title: 'Действия', 
+      align: 'center',
+      render: (obj) => (
+        <div className="flex gap-1" style={{ justifyContent: 'center' }}>
+          <Button variant="warning" size="small" onClick={() => handleEdit(obj)}>
+            Ред.
+          </Button>
+          <Button variant="danger" size="small" onClick={() => handleDelete(obj.id)}>
+            Удал.
+          </Button>
+        </div>
+      )
+    }
+  ];
+
   if (loading && objects.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div className="flex-between mb-3">
         <h2>Дома (объекты)</h2>
-        <button onClick={handleAdd} style={{ padding: '8px 16px', background: '#2c3e50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+        <Button variant="primary" onClick={handleAdd}>
           Добавить дом
-        </button>
+        </Button>
       </div>
 
-      {objects.length === 0 ? (
-        <p>Нет ни одного дома. Добавьте первый дом.</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white' }}>
-          <thead>
-            <tr style={{ background: '#34495e', color: 'white' }}>
-              <th style={{ padding: '10px', textAlign: 'left' }}>Адрес</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>Площадь (м²)</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>Ставка управления (руб/м²)</th>
-              <th style={{ padding: '10px', textAlign: 'right' }}>Ставка ремонта (руб/м²)</th>
-              <th style={{ padding: '10px', textAlign: 'left' }}>Дата начала</th>
-              <th style={{ padding: '10px', textAlign: 'center' }}>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {objects.map(obj => (
-              <tr key={obj.id} style={{ borderBottom: '1px solid #ddd' }}>
-                <td style={{ padding: '10px' }}>{obj.object_address}</td>
-                <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(obj.object_area).toFixed(2)}</td>
-                <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(obj.management_fee).toFixed(2)}</td>
-                <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(obj.current_repair_rate).toFixed(2)}</td>
-                <td style={{ padding: '10px' }}>{formatDate(obj.service_start_date)}</td>
-                <td style={{ padding: '10px', textAlign: 'center' }}>
-                  <button onClick={() => handleEdit(obj)} style={{ marginRight: '8px', padding: '4px 8px', background: '#f39c12', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer' }}>
-                    Ред.
-                  </button>
-                  <button onClick={() => handleDelete(obj.id)} style={{ padding: '4px 8px', background: '#e74c3c', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer' }}>
-                    Удал.
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <Table 
+        columns={columns} 
+        data={objects} 
+        emptyMessage="Нет ни одного дома. Добавьте первый дом."
+      />
 
-      {/* Модальное окно (без изменений) */}
-      {showModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{ background: 'white', padding: '20px', borderRadius: '8px', width: '400px' }}>
-            <h3>{editingObject ? 'Редактировать дом' : 'Новый дом'}</h3>
-            <form onSubmit={handleSave}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Адрес:</label>
-                <input
-                  type="text"
-                  name="object_address"
-                  value={formData.object_address}
-                  onChange={handleInputChange}
-                  required
-                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Площадь (м²):</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="object_area"
-                  value={formData.object_area}
-                  onChange={handleInputChange}
-                  required
-                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Ставка управления (руб/м²):</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="management_fee"
-                  value={formData.management_fee}
-                  onChange={handleInputChange}
-                  required
-                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Ставка ремонта (руб/м²):</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="current_repair_rate"
-                  value={formData.current_repair_rate}
-                  onChange={handleInputChange}
-                  required
-                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Дата начала:</label>
-                <input
-                  type="date"
-                  name="service_start_date"
-                  value={formData.service_start_date}
-                  onChange={handleInputChange}
-                  required
-                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{ padding: '8px 16px', background: '#95a5a6', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer' }}>
-                  Отмена
-                </button>
-                <button type="submit" style={{ padding: '8px 16px', background: '#27ae60', border: 'none', borderRadius: '4px', color: 'white', cursor: 'pointer' }}>
-                  Сохранить
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editingObject ? 'Редактировать дом' : 'Новый дом'}
+        footer={
+          <>
+            <Button variant="neutral" onClick={() => setShowModal(false)}>
+              Отмена
+            </Button>
+            <Button variant="success" type="submit" form="objectForm">
+              Сохранить
+            </Button>
+          </>
+        }
+      >
+        <form id="objectForm" onSubmit={handleSave}>
+          <Input
+            label="Адрес"
+            name="object_address"
+            value={formData.object_address}
+            onChange={handleInputChange}
+            required
+          />
+          <Input
+            label="Площадь (м²)"
+            type="number"
+            step="0.01"
+            name="object_area"
+            value={formData.object_area}
+            onChange={handleInputChange}
+            required
+          />
+          <Input
+            label="Ставка управления (руб/м²)"
+            type="number"
+            step="0.01"
+            name="management_fee"
+            value={formData.management_fee}
+            onChange={handleInputChange}
+            required
+          />
+          <Input
+            label="Ставка ремонта (руб/м²)"
+            type="number"
+            step="0.01"
+            name="current_repair_rate"
+            value={formData.current_repair_rate}
+            onChange={handleInputChange}
+            required
+          />
+          <Input
+            label="Дата начала"
+            type="date"
+            name="service_start_date"
+            value={formData.service_start_date}
+            onChange={handleInputChange}
+            required
+          />
+        </form>
+      </Modal>
     </div>
   );
 };

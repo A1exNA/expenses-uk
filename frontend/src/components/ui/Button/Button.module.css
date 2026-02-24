@@ -1,0 +1,79 @@
+@import '../../../styles/variables.css';
+
+.button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Варианты */
+.primary {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+}
+
+.primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+}
+
+.success {
+  background-color: var(--color-success);
+  color: var(--color-white);
+}
+
+.success:hover:not(:disabled) {
+  background-color: #219a52;
+}
+
+.danger {
+  background-color: var(--color-danger);
+  color: var(--color-white);
+}
+
+.danger:hover:not(:disabled) {
+  background-color: #c0392b;
+}
+
+.warning {
+  background-color: var(--color-warning);
+  color: var(--color-white);
+}
+
+.warning:hover:not(:disabled) {
+  background-color: #e67e22;
+}
+
+.neutral {
+  background-color: var(--color-gray);
+  color: var(--color-white);
+}
+
+.neutral:hover:not(:disabled) {
+  background-color: #7f8c8d;
+}
+
+/* Размеры */
+.small {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+.medium {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-md);
+}
+
+.large {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-lg);
+}

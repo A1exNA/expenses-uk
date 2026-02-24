@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { Button } from './ui';
 
 const Sidebar = () => {
   const menuItems = [
@@ -12,26 +13,31 @@ const Sidebar = () => {
     { path: '/deposits', label: 'Пополнения' },
   ];
 
+  const sidebarStyle = {
+    width: 'var(--sidebar-width)',
+    background: 'var(--color-secondary)',
+    padding: 'var(--spacing-md) 0',
+    color: 'white'
+  };
+
+  const linkStyle = ({ isActive }) => ({
+    display: 'block',
+    padding: 'var(--spacing-sm) var(--spacing-md)',
+    color: 'white',
+    textDecoration: 'none',
+    background: isActive ? 'var(--color-primary)' : 'transparent',
+    borderLeft: isActive ? '4px solid var(--color-danger)' : 'none',
+    transition: 'background 0.2s'
+  });
+
   return (
-    <nav style={{
-      width: '220px',
-      background: '#34495e',
-      padding: '20px 0',
-      color: 'white'
-    }}>
+    <nav style={sidebarStyle}>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {menuItems.map(item => (
-          <li key={item.path} style={{ margin: '5px 0' }}>
+          <li key={item.path} style={{ margin: 'var(--spacing-xs) 0' }}>
             <NavLink
               to={item.path}
-              style={({ isActive }) => ({
-                display: 'block',
-                padding: '10px 20px',
-                color: 'white',
-                textDecoration: 'none',
-                background: isActive ? '#2c3e50' : 'transparent',
-                borderLeft: isActive ? '4px solid #e74c3c' : 'none'
-              })}
+              style={linkStyle}
             >
               {item.label}
             </NavLink>
