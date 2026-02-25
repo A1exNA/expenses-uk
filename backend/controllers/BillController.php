@@ -280,4 +280,9 @@ class BillController {
 
         Response::json(['message' => 'Item deleted'], 200);
     }
+
+    public function allItems() {
+        $items = $this->expenseBillModel->getAll();
+        Response::json($items);
+    }
 }

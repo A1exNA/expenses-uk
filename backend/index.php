@@ -163,6 +163,11 @@ switch ($resource) {
         }
         break;
     
+    case 'expense-bills':
+        $controller = new controllers\BillController($db);
+        $controller->allItems();
+        break;
+    
     case 'checks':
         $controller = new controllers\CheckController($db);
         $method = $_SERVER['REQUEST_METHOD'];

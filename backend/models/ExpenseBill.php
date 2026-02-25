@@ -76,4 +76,9 @@ class ExpenseBill {
         $result = $stmt->get_result();
         return $result->num_rows > 0;
     }
+
+    public function getAll() {
+        $result = $this->db->query("SELECT * FROM expense_bills ORDER BY id DESC");
+        return $result->fetch_all(MYSQLI_ASSOC);
+    }
 }
