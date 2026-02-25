@@ -12,6 +12,15 @@ const Bills = () => {
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('cards');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
+  
+  // Состояние для фильтров
+  const [filters, setFilters] = useState({
+    searchText: '',
+    groupId: '',
+    dateFrom: '',
+    dateTo: ''
+  });
+  const [showFilters, setShowFilters] = useState(false);
 
   const [showBillModal, setShowBillModal] = useState(false);
   const [editingBill, setEditingBill] = useState(null);
@@ -40,7 +49,7 @@ const Bills = () => {
         apiGet('/bills'),
         apiGet('/spending-groups'),
         apiGet('/objects'),
-        apiGet('/expense-bills') // новый эндпоинт для всех позиций счетов
+        apiGet('/expense-bills')
       ]);
       setBills(billsData);
       setSpendingGroups(groupsData);
@@ -86,15 +95,45 @@ const Bills = () => {
 
   // Общая сумма счёта на основе всех позиций
   const getBillTotal = (billId) => {
-    if (!Array.isArray(allItems)) return '0.00';
     const billItems = allItems.filter(item => Number(item.bills_id) === Number(billId));
     const total = billItems.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
     return total.toFixed(2);
   };
 
-  // Сортировка
+  // Фильтрация счетов
+  const filteredBills = useMemo(() => {
+    return bills.filter(bill => {
+      // Поиск по тексту (описание счёта)
+      if (filters.searchText && !bill.text.toLowerCase().includes(filters.searchText.toLowerCase())) {
+        // Также ищем в названии группы
+        const groupName = spendingGroups.find(g => Number(g.id) === Number(bill.spending_group_id))?.text || '';
+        if (!groupName.toLowerCase().includes(filters.searchText.toLowerCase())) {
+          return false;
+        }
+      }
+
+      // Фильтр по группе
+      if (filters.groupId && Number(bill.spending_group_id) !== Number(filters.groupId)) {
+        return false;
+      }
+
+      // Фильтр по дате начала
+      if (filters.dateFrom && bill.date < filters.dateFrom) {
+        return false;
+      }
+
+      // Фильтр по дате окончания
+      if (filters.dateTo && bill.date > filters.dateTo) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [bills, filters, spendingGroups]);
+
+  // Сортировка отфильтрованных счетов
   const sortedBills = useMemo(() => {
-    const sortableItems = [...bills];
+    const sortableItems = [...filteredBills];
     sortableItems.sort((a, b) => {
       let aVal, bVal;
 
@@ -128,7 +167,7 @@ const Bills = () => {
       return 0;
     });
     return sortableItems;
-  }, [bills, spendingGroups, objects, allItems, sortConfig]);
+  }, [filteredBills, spendingGroups, objects, sortConfig]);
 
   // Обработчики для счёта
   const handleBillInputChange = (e) => {
@@ -267,6 +306,21 @@ const Bills = () => {
     setSortConfig({ key, direction });
   };
 
+  // Обработчики фильтров
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      searchText: '',
+      groupId: '',
+      dateFrom: '',
+      dateTo: ''
+    });
+  };
+
   if (loading && bills.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
 
@@ -285,6 +339,57 @@ const Bills = () => {
         </div>
       </div>
 
+      {/* Кнопка показа/скрытия фильтров */}
+      <div className="mb-3">
+        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+          {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
+        </Button>
+      </div>
+
+      {/* Панель фильтров */}
+      {showFilters && (
+        <Card className="mb-3">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+            <Input
+              label="Поиск"
+              name="searchText"
+              value={filters.searchText}
+              onChange={handleFilterChange}
+              placeholder="Описание, группа..."
+            />
+            <Input
+              type="select"
+              label="Группа"
+              name="groupId"
+              value={filters.groupId}
+              onChange={handleFilterChange}
+            >
+              <option value="">Все группы</option>
+              {spendingGroups.map(group => (
+                <option key={group.id} value={group.id}>{getGroupDisplay(group.id)}</option>
+              ))}
+            </Input>
+            <Input
+              label="Дата с"
+              type="date"
+              name="dateFrom"
+              value={filters.dateFrom}
+              onChange={handleFilterChange}
+            />
+            <Input
+              label="Дата по"
+              type="date"
+              name="dateTo"
+              value={filters.dateTo}
+              onChange={handleFilterChange}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
+            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+          </div>
+        </Card>
+      )}
+
       {viewMode === 'cards' && (
         <div className="flex-between mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
@@ -302,7 +407,7 @@ const Bills = () => {
       )}
 
       {sortedBills.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет счетов. Выставьте первый счёт.</p></Card>
+        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет счетов, соответствующих фильтрам.</p></Card>
       ) : viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {sortedBills.map(bill => (

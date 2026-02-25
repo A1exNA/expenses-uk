@@ -10,10 +10,20 @@ const Users = () => {
   const [expenseChecks, setExpenseChecks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
   const [viewMode, setViewMode] = useState('cards');
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+
+  // Состояние для фильтров
+  const [filters, setFilters] = useState({
+    searchText: '',
+    post: '',
+    balanceMin: '',
+    balanceMax: ''
+  });
+  const [showFilters, setShowFilters] = useState(false);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({
     user_name: '',
     user_post: '',
@@ -45,16 +55,14 @@ const Users = () => {
     fetchData();
   }, []);
 
-  // Вычисление остатка с учётом кассы (id=1)
+  // Вычисление остатка (с учётом кассы id=1)
   const getUserBalance = (userId) => {
     const uid = Number(userId);
 
-    // Пополнения пользователя
     const userDeposits = deposits
       .filter(d => Number(d.user_id) === uid)
       .reduce((sum, d) => sum + Number(d.amount), 0);
 
-    // Чеки пользователя (сумма позиций)
     const userChecks = checks
       .filter(c => Number(c.user_id) === uid)
       .map(c => c.id);
@@ -62,24 +70,53 @@ const Users = () => {
       .filter(ec => userChecks.includes(Number(ec.check_id)))
       .reduce((sum, ec) => sum + Number(ec.price) * Number(ec.quantity), 0);
 
-    // Для обычных пользователей возвращаем их личный остаток
     if (uid !== 1) {
       return userDeposits - userCheckTotal;
     }
 
-    // Для кассы (id=1):
-    // Баланс = (свои пополнения) - (свои чеки) - (пополнения всех остальных)
+    // Для кассы (id=1) – формула: свои пополнения - свои чеки - пополнения остальных
     const othersDeposits = deposits
       .filter(d => Number(d.user_id) !== 1)
       .reduce((sum, d) => sum + Number(d.amount), 0);
-
-    const cashboxBalance = userDeposits - userCheckTotal - othersDeposits;
-    return cashboxBalance;
+    return userDeposits - userCheckTotal - othersDeposits;
   };
+
+  // Фильтрация пользователей
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      const balance = getUserBalance(user.id);
+
+      // Поиск по тексту (имя, должность, email)
+      if (filters.searchText) {
+        const searchLower = filters.searchText.toLowerCase();
+        const nameMatch = user.user_name?.toLowerCase().includes(searchLower);
+        const postMatch = user.user_post?.toLowerCase().includes(searchLower);
+        const emailMatch = user.email?.toLowerCase().includes(searchLower);
+        if (!nameMatch && !postMatch && !emailMatch) return false;
+      }
+
+      // Фильтр по должности
+      if (filters.post && !user.user_post?.toLowerCase().includes(filters.post.toLowerCase())) {
+        return false;
+      }
+
+      // Фильтр по минимальному остатку
+      if (filters.balanceMin !== '' && balance < parseFloat(filters.balanceMin)) {
+        return false;
+      }
+
+      // Фильтр по максимальному остатку
+      if (filters.balanceMax !== '' && balance > parseFloat(filters.balanceMax)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [users, deposits, checks, expenseChecks, filters]);
 
   // Сортировка
   const sortedUsers = useMemo(() => {
-    const sortableItems = [...users];
+    const sortableItems = [...filteredUsers];
     sortableItems.sort((a, b) => {
       let aVal, bVal;
 
@@ -110,8 +147,9 @@ const Users = () => {
       return 0;
     });
     return sortableItems;
-  }, [users, deposits, checks, expenseChecks, sortConfig]);
+  }, [filteredUsers, deposits, checks, expenseChecks, sortConfig]);
 
+  // Обработчики формы
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -177,6 +215,21 @@ const Users = () => {
     setSortConfig({ key, direction });
   };
 
+  // Обработчики фильтров
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      searchText: '',
+      post: '',
+      balanceMin: '',
+      balanceMax: ''
+    });
+  };
+
   if (loading && users.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
 
@@ -194,6 +247,56 @@ const Users = () => {
           <Button variant="primary" onClick={handleAdd}>+ Добавить</Button>
         </div>
       </div>
+
+      {/* Кнопка показа/скрытия фильтров */}
+      <div className="mb-3">
+        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+          {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
+        </Button>
+      </div>
+
+      {/* Панель фильтров */}
+      {showFilters && (
+        <Card className="mb-3">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+            <Input
+              label="Поиск"
+              name="searchText"
+              value={filters.searchText}
+              onChange={handleFilterChange}
+              placeholder="Имя, должность, email..."
+            />
+            <Input
+              label="Должность"
+              name="post"
+              value={filters.post}
+              onChange={handleFilterChange}
+              placeholder="Фильтр по должности"
+            />
+            <Input
+              label="Остаток от"
+              type="number"
+              step="0.01"
+              name="balanceMin"
+              value={filters.balanceMin}
+              onChange={handleFilterChange}
+              placeholder="Мин. остаток"
+            />
+            <Input
+              label="Остаток до"
+              type="number"
+              step="0.01"
+              name="balanceMax"
+              value={filters.balanceMax}
+              onChange={handleFilterChange}
+              placeholder="Макс. остаток"
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
+            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+          </div>
+        </Card>
+      )}
 
       {viewMode === 'cards' && (
         <div className="flex-between mb-3">
@@ -214,7 +317,7 @@ const Users = () => {
       )}
 
       {sortedUsers.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет сотрудников. Добавьте первого.</p></Card>
+        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет сотрудников, соответствующих фильтрам.</p></Card>
       ) : viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {sortedUsers.map(user => {
@@ -230,11 +333,11 @@ const Users = () => {
                 </div>
                 <div style={{ marginBottom: 'var(--spacing-sm)' }}>
                   <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Должность</div>
-                  <div style={{ fontSize: 'var(--font-size-md)' }}>{user.user_post}</div>
+                  <div>{user.user_post}</div>
                 </div>
                 <div style={{ marginBottom: 'var(--spacing-sm)' }}>
                   <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Email</div>
-                  <div style={{ fontSize: 'var(--font-size-md)' }}>{user.email || '—'}</div>
+                  <div>{user.email || '—'}</div>
                 </div>
                 <div style={{ marginBottom: 'var(--spacing-md)' }}>
                   <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>

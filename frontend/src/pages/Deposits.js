@@ -6,37 +6,45 @@ import '../styles/utils.css';
 const Deposits = () => {
   const [deposits, setDeposits] = useState([]);
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingDeposit, setEditingDeposit] = useState(null);
   const [viewMode, setViewMode] = useState('cards');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
 
-  const [showModal, setShowModal] = useState(false);
-  const [editingDeposit, setEditingDeposit] = useState(null);
+  // Состояние для фильтров
+  const [filters, setFilters] = useState({
+    userId: '',
+    amountMin: '',
+    amountMax: '',
+    dateFrom: '',
+    dateTo: ''
+  });
+  const [showFilters, setShowFilters] = useState(false);
+
   const [formData, setFormData] = useState({
     user_id: '',
     amount: '',
     date: new Date().toISOString().split('T')[0]
   });
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [depositsData, usersData] = await Promise.all([
-        apiGet('/deposits'),
-        apiGet('/users')
-      ]);
-      setDeposits(depositsData);
-      setUsers(usersData);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [depositsData, usersData] = await Promise.all([
+          apiGet('/deposits'),
+          apiGet('/users')
+        ]);
+        setDeposits(depositsData);
+        setUsers(usersData);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchData();
   }, []);
 
@@ -45,8 +53,43 @@ const Deposits = () => {
     return user ? user.user_name : 'Неизвестный сотрудник';
   };
 
+  const formatDate = (dateStr) => dateStr.split('-').reverse().join('.');
+
+  // Фильтрация пополнений
+  const filteredDeposits = useMemo(() => {
+    return deposits.filter(dep => {
+      // Фильтр по сотруднику
+      if (filters.userId && Number(dep.user_id) !== Number(filters.userId)) {
+        return false;
+      }
+
+      // Фильтр по минимальной сумме
+      if (filters.amountMin !== '' && Number(dep.amount) < parseFloat(filters.amountMin)) {
+        return false;
+      }
+
+      // Фильтр по максимальной сумме
+      if (filters.amountMax !== '' && Number(dep.amount) > parseFloat(filters.amountMax)) {
+        return false;
+      }
+
+      // Фильтр по дате начала
+      if (filters.dateFrom && dep.date < filters.dateFrom) {
+        return false;
+      }
+
+      // Фильтр по дате окончания
+      if (filters.dateTo && dep.date > filters.dateTo) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [deposits, filters]);
+
+  // Сортировка
   const sortedDeposits = useMemo(() => {
-    const sortableItems = [...deposits];
+    const sortableItems = [...filteredDeposits];
     sortableItems.sort((a, b) => {
       let aVal, bVal;
 
@@ -60,8 +103,8 @@ const Deposits = () => {
           bVal = getUserName(b.user_id);
           break;
         case 'amount':
-          aVal = parseFloat(a.amount);
-          bVal = parseFloat(b.amount);
+          aVal = Number(a.amount);
+          bVal = Number(b.amount);
           break;
         default:
           aVal = a.id;
@@ -73,7 +116,7 @@ const Deposits = () => {
       return 0;
     });
     return sortableItems;
-  }, [deposits, users, sortConfig]);
+  }, [filteredDeposits, users, sortConfig]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -104,7 +147,7 @@ const Deposits = () => {
     if (!window.confirm('Удалить запись о пополнении?')) return;
     try {
       await apiDelete(`/deposits/${id}`);
-      await fetchData();
+      setDeposits(deposits.filter(d => d.id !== id));
     } catch (err) {
       alert('Ошибка удаления: ' + err.message);
     }
@@ -112,8 +155,8 @@ const Deposits = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.user_id || !formData.amount) {
-      alert('Выберите сотрудника и укажите сумму');
+    if (!formData.user_id || !formData.amount || !formData.date) {
+      alert('Заполните все поля');
       return;
     }
     try {
@@ -127,15 +170,13 @@ const Deposits = () => {
       } else {
         await apiPost('/deposits', payload);
       }
-      await fetchData();
+      const updated = await apiGet('/deposits');
+      setDeposits(updated);
       setShowModal(false);
     } catch (err) {
       alert('Ошибка сохранения: ' + err.message);
     }
   };
-
-  const formatDate = (dateStr) => dateStr.split('-').reverse().join('.');
-  const formatCurrency = (value) => Number(value).toFixed(2) + ' ₽';
 
   const requestSort = (key) => {
     let direction = 'asc';
@@ -150,7 +191,23 @@ const Deposits = () => {
     setSortConfig({ key, direction });
   };
 
-  if (loading && deposits.length === 0) return <div>Загрузка...</div>;
+  // Обработчики фильтров
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      userId: '',
+      amountMin: '',
+      amountMax: '',
+      dateFrom: '',
+      dateTo: ''
+    });
+  };
+
+  if (loading) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
 
   return (
@@ -167,6 +224,68 @@ const Deposits = () => {
           <Button variant="primary" onClick={handleAdd}>+ Добавить</Button>
         </div>
       </div>
+
+      {/* Кнопка показа/скрытия фильтров */}
+      <div className="mb-3">
+        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+          {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
+        </Button>
+      </div>
+
+      {/* Панель фильтров */}
+      {showFilters && (
+        <Card className="mb-3">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+            <Input
+              type="select"
+              label="Сотрудник"
+              name="userId"
+              value={filters.userId}
+              onChange={handleFilterChange}
+            >
+              <option value="">Все сотрудники</option>
+              {users.map(user => (
+                <option key={user.id} value={user.id}>{user.user_name}</option>
+              ))}
+            </Input>
+            <Input
+              label="Сумма от"
+              type="number"
+              step="0.01"
+              name="amountMin"
+              value={filters.amountMin}
+              onChange={handleFilterChange}
+              placeholder="Мин. сумма"
+            />
+            <Input
+              label="Сумма до"
+              type="number"
+              step="0.01"
+              name="amountMax"
+              value={filters.amountMax}
+              onChange={handleFilterChange}
+              placeholder="Макс. сумма"
+            />
+            <Input
+              label="Дата с"
+              type="date"
+              name="dateFrom"
+              value={filters.dateFrom}
+              onChange={handleFilterChange}
+            />
+            <Input
+              label="Дата по"
+              type="date"
+              name="dateTo"
+              value={filters.dateTo}
+              onChange={handleFilterChange}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
+            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+          </div>
+        </Card>
+      )}
 
       {viewMode === 'cards' && (
         <div className="flex-between mb-3">
@@ -185,30 +304,30 @@ const Deposits = () => {
       )}
 
       {sortedDeposits.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет записей о пополнениях.</p></Card>
+        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет пополнений, соответствующих фильтрам.</p></Card>
       ) : viewMode === 'cards' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: 'var(--spacing-lg)' }}>
-          {sortedDeposits.map(deposit => (
-            <Card key={deposit.id} className="fade-in">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
+          {sortedDeposits.map(dep => (
+            <Card key={dep.id} className="fade-in">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--spacing-md)' }}>
                 <h3 style={{ fontSize: 'var(--font-size-lg)', margin: 0, color: 'var(--primary)' }}>
-                  {getUserName(deposit.user_id)}
+                  {getUserName(dep.user_id)}
                 </h3>
-                <Badge variant="neutral">ID: {deposit.id}</Badge>
+                <Badge variant="neutral">ID: {dep.id}</Badge>
               </div>
               <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Дата</div>
-                <div>{formatDate(deposit.date)}</div>
-              </div>
-              <div style={{ marginBottom: 'var(--spacing-md)' }}>
                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Сумма</div>
                 <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--success)' }}>
-                  {formatCurrency(deposit.amount)}
+                  {Number(dep.amount).toFixed(2)} ₽
                 </div>
               </div>
+              <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Дата</div>
+                <div>{formatDate(dep.date)}</div>
+              </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
-                <Button variant="warning" size="small" onClick={() => handleEdit(deposit)}>✎ Ред.</Button>
-                <Button variant="danger" size="small" onClick={() => handleDelete(deposit.id)}>× Удал.</Button>
+                <Button variant="warning" size="small" onClick={() => handleEdit(dep)}>✎ Ред.</Button>
+                <Button variant="danger" size="small" onClick={() => handleDelete(dep.id)}>× Удал.</Button>
               </div>
             </Card>
           ))}
@@ -231,16 +350,16 @@ const Deposits = () => {
               </tr>
             </thead>
             <tbody>
-              {sortedDeposits.map(deposit => (
-                <tr key={deposit.id} style={{ borderBottom: '1px solid var(--light)' }}>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{getUserName(deposit.user_id)}</td>
+              {sortedDeposits.map(dep => (
+                <tr key={dep.id} style={{ borderBottom: '1px solid var(--light)' }}>
+                  <td style={{ padding: 'var(--spacing-sm)' }}>{getUserName(dep.user_id)}</td>
                   <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)', fontWeight: 500 }}>
-                    {formatCurrency(deposit.amount)}
+                    {Number(dep.amount).toFixed(2)} ₽
                   </td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{formatDate(deposit.date)}</td>
+                  <td style={{ padding: 'var(--spacing-sm)' }}>{formatDate(dep.date)}</td>
                   <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
-                    <Button variant="warning" size="small" onClick={() => handleEdit(deposit)}>Ред.</Button>
-                    <Button variant="danger" size="small" onClick={() => handleDelete(deposit.id)}>Удал.</Button>
+                    <Button variant="warning" size="small" onClick={() => handleEdit(dep)}>Ред.</Button>
+                    <Button variant="danger" size="small" onClick={() => handleDelete(dep.id)}>Удал.</Button>
                   </td>
                 </tr>
               ))}
@@ -271,9 +390,7 @@ const Deposits = () => {
           >
             <option value="">Выберите сотрудника</option>
             {users.map(user => (
-              <option key={user.id} value={user.id}>
-                {user.user_name} ({user.user_post})
-              </option>
+              <option key={user.id} value={user.id}>{user.user_name} ({user.user_post})</option>
             ))}
           </Input>
           <Input

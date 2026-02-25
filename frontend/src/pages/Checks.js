@@ -8,11 +8,21 @@ const Checks = () => {
   const [spendingGroups, setSpendingGroups] = useState([]);
   const [users, setUsers] = useState([]);
   const [objects, setObjects] = useState([]);
-  const [allItems, setAllItems] = useState([]); // все позиции всех чеков
+  const [allItems, setAllItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('cards');
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
+  
+  // Состояние для фильтров
+  const [filters, setFilters] = useState({
+    searchText: '',
+    userId: '',
+    groupId: '',
+    dateFrom: '',
+    dateTo: ''
+  });
+  const [showFilters, setShowFilters] = useState(false); // показывать/скрывать панель фильтров
 
   const [showCheckModal, setShowCheckModal] = useState(false);
   const [editingCheck, setEditingCheck] = useState(null);
@@ -34,35 +44,34 @@ const Checks = () => {
   });
 
   // Загрузка всех данных
-	const fetchData = async () => {
-		setLoading(true);
-		setError(null);
-		try {
-			const [checksData, groupsData, usersData, objectsData, itemsData] = await Promise.all([
-				apiGet('/checks'),
-				apiGet('/spending-groups'),
-				apiGet('/users'),
-				apiGet('/objects'),
-				apiGet('/expense-checks') // теперь этот эндпоинт должен вернуть массив
-			]);
-			setChecks(checksData);
-			setSpendingGroups(groupsData);
-			setUsers(usersData);
-			setObjects(objectsData);
-			// Убедимся, что itemsData — массив
-			setAllItems(Array.isArray(itemsData) ? itemsData : []);
-		} catch (err) {
-			setError(err.message);
-		} finally {
-			setLoading(false);
-		}
-	};
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [checksData, groupsData, usersData, objectsData, itemsData] = await Promise.all([
+        apiGet('/checks'),
+        apiGet('/spending-groups'),
+        apiGet('/users'),
+        apiGet('/objects'),
+        apiGet('/expense-checks')
+      ]);
+      setChecks(checksData);
+      setSpendingGroups(groupsData);
+      setUsers(usersData);
+      setObjects(objectsData);
+      setAllItems(Array.isArray(itemsData) ? itemsData : []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Загрузка позиций для конкретного чека (используется при открытии модалки)
+  // Загрузка позиций для конкретного чека
   const fetchItemsForCheck = async (checkId) => {
     try {
       const data = await apiGet(`/checks/${checkId}/items`);
@@ -72,7 +81,6 @@ const Checks = () => {
     }
   };
 
-  // Функция очистки адреса
   const cleanAddress = (addr) => {
     if (!addr) return '';
     return addr
@@ -80,7 +88,6 @@ const Checks = () => {
       .replace(/^\s*(ул\. 2-я|пер\.|бул\.|пр\.|ул\.)\s*/i, '');
   };
 
-  // Получение названия группы с адресом
   const getGroupDisplay = (groupId) => {
     const group = spendingGroups.find(g => Number(g.id) === Number(groupId));
     if (!group) return 'Неизвестная группа';
@@ -94,16 +101,53 @@ const Checks = () => {
     return user ? user.user_name : 'Неизвестный сотрудник';
   };
 
-  // Вычисление общей суммы чека на основе всех позиций
   const getCheckTotal = (checkId) => {
     const checkItems = allItems.filter(item => Number(item.check_id) === Number(checkId));
     const total = checkItems.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
     return total.toFixed(2);
   };
 
-  // Сортировка
+  // Фильтрация чеков
+  const filteredChecks = useMemo(() => {
+    return checks.filter(check => {
+      // Поиск по тексту (описание чека)
+      if (filters.searchText && !check.text.toLowerCase().includes(filters.searchText.toLowerCase())) {
+        // Также ищем в имени сотрудника и названии группы (можно добавить)
+        const groupName = spendingGroups.find(g => Number(g.id) === Number(check.spending_group_id))?.text || '';
+        const userName = users.find(u => Number(u.id) === Number(check.user_id))?.user_name || '';
+        if (!groupName.toLowerCase().includes(filters.searchText.toLowerCase()) &&
+            !userName.toLowerCase().includes(filters.searchText.toLowerCase())) {
+          return false;
+        }
+      }
+
+      // Фильтр по сотруднику
+      if (filters.userId && Number(check.user_id) !== Number(filters.userId)) {
+        return false;
+      }
+
+      // Фильтр по группе
+      if (filters.groupId && Number(check.spending_group_id) !== Number(filters.groupId)) {
+        return false;
+      }
+
+      // Фильтр по дате начала
+      if (filters.dateFrom && check.date < filters.dateFrom) {
+        return false;
+      }
+
+      // Фильтр по дате окончания
+      if (filters.dateTo && check.date > filters.dateTo) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [checks, filters, spendingGroups, users]);
+
+  // Сортировка отфильтрованных чеков
   const sortedChecks = useMemo(() => {
-    const sortableItems = [...checks];
+    const sortableItems = [...filteredChecks];
     sortableItems.sort((a, b) => {
       let aVal, bVal;
 
@@ -141,9 +185,9 @@ const Checks = () => {
       return 0;
     });
     return sortableItems;
-  }, [checks, spendingGroups, objects, allItems, sortConfig]);
+  }, [filteredChecks, spendingGroups, objects, sortConfig]);
 
-  // Обработчики для чека
+  // Обработчики для чеков (без изменений, кроме возможно сброса фильтров при необходимости)
   const handleCheckInputChange = (e) => {
     const { name, value } = e.target;
     setCheckForm(prev => ({ ...prev, [name]: value }));
@@ -172,10 +216,10 @@ const Checks = () => {
   };
 
   const handleDeleteCheck = async (id) => {
-    if (!window.confirm('Удалить чек? Все позиции также будут удалены.')) return;
+    if (!window.confirm('Удалить чек?')) return;
     try {
       await apiDelete(`/checks/${id}`);
-      await fetchData(); // обновляем все данные
+      await fetchData();
     } catch (err) {
       alert('Ошибка удаления: ' + err.message);
     }
@@ -206,7 +250,7 @@ const Checks = () => {
     }
   };
 
-  // Обработчики для позиций
+  // Обработчики для позиций (без изменений)
   const handleItemInputChange = (e) => {
     const { name, value } = e.target;
     setItemForm(prev => ({ ...prev, [name]: value }));
@@ -233,9 +277,8 @@ const Checks = () => {
     if (!window.confirm('Удалить позицию?')) return;
     try {
       await apiDelete(`/checks/${currentCheckId}/items/${itemId}`);
-      // Обновляем список позиций для текущего чека и все позиции
       await fetchItemsForCheck(currentCheckId);
-      await fetchData(); // обновляем allItems
+      await fetchData();
       setEditingItem(null);
       setItemForm({ text: '', price: '', quantity: '' });
     } catch (err) {
@@ -261,7 +304,7 @@ const Checks = () => {
         await apiPost(`/checks/${currentCheckId}/items`, payload);
       }
       await fetchItemsForCheck(currentCheckId);
-      await fetchData(); // обновляем allItems
+      await fetchData();
       setEditingItem(null);
       setItemForm({ text: '', price: '', quantity: '' });
     } catch (err) {
@@ -284,6 +327,22 @@ const Checks = () => {
     setSortConfig({ key, direction });
   };
 
+  // Обработчики фильтров
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      searchText: '',
+      userId: '',
+      groupId: '',
+      dateFrom: '',
+      dateTo: ''
+    });
+  };
+
   if (loading && checks.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
 
@@ -301,6 +360,69 @@ const Checks = () => {
           <Button variant="primary" onClick={handleAddCheck}>+ Добавить чек</Button>
         </div>
       </div>
+
+      {/* Кнопка показа/скрытия фильтров */}
+      <div className="mb-3">
+        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+          {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
+        </Button>
+      </div>
+
+      {/* Панель фильтров */}
+      {showFilters && (
+        <Card className="mb-3">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+            <Input
+              label="Поиск"
+              name="searchText"
+              value={filters.searchText}
+              onChange={handleFilterChange}
+              placeholder="Описание, группа, сотрудник..."
+            />
+            <Input
+              type="select"
+              label="Сотрудник"
+              name="userId"
+              value={filters.userId}
+              onChange={handleFilterChange}
+            >
+              <option value="">Все сотрудники</option>
+              {users.map(user => (
+                <option key={user.id} value={user.id}>{user.user_name}</option>
+              ))}
+            </Input>
+            <Input
+              type="select"
+              label="Группа"
+              name="groupId"
+              value={filters.groupId}
+              onChange={handleFilterChange}
+            >
+              <option value="">Все группы</option>
+              {spendingGroups.map(group => (
+                <option key={group.id} value={group.id}>{getGroupDisplay(group.id)}</option>
+              ))}
+            </Input>
+            <Input
+              label="Дата с"
+              type="date"
+              name="dateFrom"
+              value={filters.dateFrom}
+              onChange={handleFilterChange}
+            />
+            <Input
+              label="Дата по"
+              type="date"
+              name="dateTo"
+              value={filters.dateTo}
+              onChange={handleFilterChange}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
+            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+          </div>
+        </Card>
+      )}
 
       {/* Сортировка для карточек */}
       {viewMode === 'cards' && (
@@ -322,7 +444,7 @@ const Checks = () => {
       )}
 
       {sortedChecks.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет чеков. Добавьте первый чек.</p></Card>
+        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет чеков, соответствующих фильтрам.</p></Card>
       ) : viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {sortedChecks.map(check => (
@@ -402,7 +524,8 @@ const Checks = () => {
         </Card>
       )}
 
-      {/* Модальное окно для чека */}
+      {/* Модальные окна без изменений */}
+      {/* ... (такие же как в предыдущей версии) */}
       <Modal
         isOpen={showCheckModal}
         onClose={() => setShowCheckModal(false)}
@@ -459,7 +582,6 @@ const Checks = () => {
         </form>
       </Modal>
 
-      {/* Модальное окно для позиций (улучшенный интерфейс) */}
       <Modal
         isOpen={showItemsModal}
         onClose={() => setShowItemsModal(false)}

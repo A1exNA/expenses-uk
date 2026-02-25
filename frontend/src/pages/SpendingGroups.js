@@ -11,7 +11,15 @@ const SpendingGroups = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
   const [viewMode, setViewMode] = useState('cards');
-  const [sortConfig, setSortConfig] = useState({ key: 'object', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'text', direction: 'asc' });
+
+  // Состояние для фильтров
+  const [filters, setFilters] = useState({
+    searchText: '',
+    objectId: ''
+  });
+  const [showFilters, setShowFilters] = useState(false);
+
   const [formData, setFormData] = useState({
     object_id: '',
     text: ''
@@ -39,7 +47,7 @@ const SpendingGroups = () => {
     fetchData();
   }, []);
 
-  // Функция очистки адреса для сортировки (как в Objects)
+  // Функция очистки адреса для сортировки
   const cleanAddress = (addr) => {
     if (!addr) return '';
     return addr
@@ -47,9 +55,33 @@ const SpendingGroups = () => {
       .replace(/^\s*(ул\. 2-я|пер\.|бул\.|пр\.|ул\.)\s*/i, '');
   };
 
+  // Получение адреса объекта
+  const getObjectAddress = (objectId) => {
+    if (!objectId) return '—';
+    const obj = objects.find(o => Number(o.id) === Number(objectId));
+    return obj ? obj.object_address : '—';
+  };
+
+  // Фильтрация групп
+  const filteredGroups = useMemo(() => {
+    return groups.filter(group => {
+      // Поиск по тексту группы
+      if (filters.searchText && !group.text.toLowerCase().includes(filters.searchText.toLowerCase())) {
+        return false;
+      }
+
+      // Фильтр по конкретному дому
+      if (filters.objectId && Number(group.object_id) !== Number(filters.objectId)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [groups, filters]);
+
   // Сортировка
   const sortedGroups = useMemo(() => {
-    const sortableItems = [...groups];
+    const sortableItems = [...filteredGroups];
     sortableItems.sort((a, b) => {
       let aVal, bVal;
 
@@ -59,7 +91,6 @@ const SpendingGroups = () => {
           bVal = b.text || '';
           break;
         case 'object':
-          // Получаем адрес дома для сортировки и очищаем его
           const getAddress = (groupId) => {
             const group = groups.find(g => g.id === groupId);
             if (!group || !group.object_id) return '';
@@ -79,9 +110,8 @@ const SpendingGroups = () => {
       return 0;
     });
     return sortableItems;
-  }, [groups, objects, sortConfig]);
+  }, [filteredGroups, objects, groups, sortConfig]);
 
-  // Обработчики формы
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -96,7 +126,7 @@ const SpendingGroups = () => {
   const handleEdit = (group) => {
     setEditingGroup(group);
     setFormData({
-      object_id: group.object_id ? group.object_id.toString() : '', // защита от null
+      object_id: group.object_id ? group.object_id.toString() : '',
       text: group.text
     });
     setShowModal(true);
@@ -106,7 +136,6 @@ const SpendingGroups = () => {
     if (!window.confirm('Удалить группу расходов?')) return;
     try {
       await apiDelete(`/spending-groups/${id}`);
-      // После удаления перезагружаем список
       await fetchData();
     } catch (err) {
       alert('Ошибка удаления: ' + err.message);
@@ -126,7 +155,6 @@ const SpendingGroups = () => {
       } else {
         await apiPost('/spending-groups', payload);
       }
-      // Перезагружаем список с сервера
       await fetchData();
       setShowModal(false);
     } catch (err) {
@@ -147,10 +175,14 @@ const SpendingGroups = () => {
     setSortConfig({ key, direction });
   };
 
-  const getObjectAddress = (objectId) => {
-    if (!objectId) return '—';
-    const obj = objects.find(o => Number(o.id) === Number(objectId));
-    return obj ? obj.object_address : '—';
+  // Обработчики фильтров
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const resetFilters = () => {
+    setFilters({ searchText: '', objectId: '' });
   };
 
   if (loading && groups.length === 0) return <div>Загрузка...</div>;
@@ -171,7 +203,43 @@ const SpendingGroups = () => {
         </div>
       </div>
 
-      {/* Сортировка для карточек */}
+      {/* Кнопка показа/скрытия фильтров */}
+      <div className="mb-3">
+        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+          {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
+        </Button>
+      </div>
+
+      {/* Панель фильтров */}
+      {showFilters && (
+        <Card className="mb-3">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+            <Input
+              label="Поиск"
+              name="searchText"
+              value={filters.searchText}
+              onChange={handleFilterChange}
+              placeholder="Название группы"
+            />
+            <Input
+              type="select"
+              label="Дом"
+              name="objectId"
+              value={filters.objectId}
+              onChange={handleFilterChange}
+            >
+              <option value="">Все дома</option>
+              {objects.map(obj => (
+                <option key={obj.id} value={obj.id}>{obj.object_address}</option>
+              ))}
+            </Input>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
+            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+          </div>
+        </Card>
+      )}
+
       {viewMode === 'cards' && (
         <div className="flex-between mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
@@ -187,7 +255,7 @@ const SpendingGroups = () => {
       )}
 
       {sortedGroups.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет групп расходов. Добавьте первую.</p></Card>
+        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет групп, соответствующих фильтрам.</p></Card>
       ) : viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {sortedGroups.map(group => (
