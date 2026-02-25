@@ -5,11 +5,14 @@ import '../styles/utils.css';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
+  const [deposits, setDeposits] = useState([]);
+  const [checks, setChecks] = useState([]);
+  const [expenseChecks, setExpenseChecks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' или 'table'
+  const [viewMode, setViewMode] = useState('cards');
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const [formData, setFormData] = useState({
     user_name: '',
@@ -17,12 +20,20 @@ const Users = () => {
     email: ''
   });
 
-  const fetchUsers = async () => {
+  const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiGet('/users');
-      setUsers(data);
+      const [usersData, depositsData, checksData, expenseChecksData] = await Promise.all([
+        apiGet('/users'),
+        apiGet('/deposits'),
+        apiGet('/checks'),
+        apiGet('/expense-checks')
+      ]);
+      setUsers(usersData);
+      setDeposits(depositsData);
+      setChecks(checksData);
+      setExpenseChecks(expenseChecksData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -31,14 +42,47 @@ const Users = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
+    fetchData();
   }, []);
+
+  // Вычисление остатка с учётом кассы (id=1)
+  const getUserBalance = (userId) => {
+    const uid = Number(userId);
+
+    // Пополнения пользователя
+    const userDeposits = deposits
+      .filter(d => Number(d.user_id) === uid)
+      .reduce((sum, d) => sum + Number(d.amount), 0);
+
+    // Чеки пользователя (сумма позиций)
+    const userChecks = checks
+      .filter(c => Number(c.user_id) === uid)
+      .map(c => c.id);
+    const userCheckTotal = expenseChecks
+      .filter(ec => userChecks.includes(Number(ec.check_id)))
+      .reduce((sum, ec) => sum + Number(ec.price) * Number(ec.quantity), 0);
+
+    // Для обычных пользователей возвращаем их личный остаток
+    if (uid !== 1) {
+      return userDeposits - userCheckTotal;
+    }
+
+    // Для кассы (id=1):
+    // Баланс = (свои пополнения) - (свои чеки) - (пополнения всех остальных)
+    const othersDeposits = deposits
+      .filter(d => Number(d.user_id) !== 1)
+      .reduce((sum, d) => sum + Number(d.amount), 0);
+
+    const cashboxBalance = userDeposits - userCheckTotal - othersDeposits;
+    return cashboxBalance;
+  };
 
   // Сортировка
   const sortedUsers = useMemo(() => {
     const sortableItems = [...users];
     sortableItems.sort((a, b) => {
       let aVal, bVal;
+
       switch (sortConfig.key) {
         case 'name':
           aVal = a.user_name || '';
@@ -52,16 +96,21 @@ const Users = () => {
           aVal = a.email || '';
           bVal = b.email || '';
           break;
+        case 'balance':
+          aVal = getUserBalance(a.id);
+          bVal = getUserBalance(b.id);
+          break;
         default:
           aVal = a.id;
           bVal = b.id;
       }
+
       if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
     return sortableItems;
-  }, [users, sortConfig]);
+  }, [users, deposits, checks, expenseChecks, sortConfig]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -146,19 +195,19 @@ const Users = () => {
         </div>
       </div>
 
-      {/* Сортировка для карточек */}
       {viewMode === 'cards' && (
         <div className="flex-between mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray)' }}>Сортировать:</span>
-            <select onChange={handleSortChange} value={`${sortConfig.key}-${sortConfig.direction}`} className="input" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '200px' }}>
-              <option value="id-asc">По умолчанию (ID ↑)</option>
+            <select onChange={handleSortChange} value={`${sortConfig.key}-${sortConfig.direction}`} className="input" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}>
               <option value="name-asc">Имя (А-Я)</option>
               <option value="name-desc">Имя (Я-А)</option>
               <option value="post-asc">Должность (А-Я)</option>
               <option value="post-desc">Должность (Я-А)</option>
               <option value="email-asc">Email (А-Я)</option>
               <option value="email-desc">Email (Я-А)</option>
+              <option value="balance-desc">Остаток (по убыванию)</option>
+              <option value="balance-asc">Остаток (по возрастанию)</option>
             </select>
           </div>
         </div>
@@ -167,27 +216,45 @@ const Users = () => {
       {sortedUsers.length === 0 ? (
         <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет сотрудников. Добавьте первого.</p></Card>
       ) : viewMode === 'cards' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-lg)' }}>
-          {sortedUsers.map(user => (
-            <Card key={user.id} className="fade-in">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--spacing-md)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-lg)', margin: 0, color: 'var(--primary)' }}>{user.user_name}</h3>
-                <Badge variant="neutral">ID: {user.id}</Badge>
-              </div>
-              <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Должность</div>
-                <div style={{ fontSize: 'var(--font-size-md)' }}>{user.user_post}</div>
-              </div>
-              <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Email</div>
-                <div style={{ fontSize: 'var(--font-size-md)' }}>{user.email || '—'}</div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
-                <Button variant="warning" size="small" onClick={() => handleEdit(user)}>✎ Ред.</Button>
-                <Button variant="danger" size="small" onClick={() => handleDelete(user.id)}>× Удал.</Button>
-              </div>
-            </Card>
-          ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
+          {sortedUsers.map(user => {
+            const balance = getUserBalance(user.id);
+            const isCashbox = user.id === 1;
+            return (
+              <Card key={user.id} className="fade-in">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--spacing-md)' }}>
+                  <h3 style={{ fontSize: 'var(--font-size-lg)', margin: 0, color: 'var(--primary)' }}>
+                    {user.user_name} {isCashbox && <Badge variant="info">Касса</Badge>}
+                  </h3>
+                  <Badge variant="neutral">ID: {user.id}</Badge>
+                </div>
+                <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Должность</div>
+                  <div style={{ fontSize: 'var(--font-size-md)' }}>{user.user_post}</div>
+                </div>
+                <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>Email</div>
+                  <div style={{ fontSize: 'var(--font-size-md)' }}>{user.email || '—'}</div>
+                </div>
+                <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                  <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray)' }}>
+                    {isCashbox ? 'Баланс кассы' : 'Остаток подотчётных'}
+                  </div>
+                  <div style={{
+                    fontSize: 'var(--font-size-lg)',
+                    fontWeight: 600,
+                    color: balance >= 0 ? 'var(--success)' : 'var(--danger)'
+                  }}>
+                    {balance.toFixed(2)} ₽
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
+                  <Button variant="warning" size="small" onClick={() => handleEdit(user)}>✎ Ред.</Button>
+                  <Button variant="danger" size="small" onClick={() => handleDelete(user.id)}>× Удал.</Button>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <Card>
@@ -203,21 +270,38 @@ const Users = () => {
                 <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('email')}>
                   Email {sortConfig.key === 'email' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
+                <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('balance')}>
+                  Остаток {sortConfig.key === 'balance' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
                 <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
               </tr>
             </thead>
             <tbody>
-              {sortedUsers.map(user => (
-                <tr key={user.id} style={{ borderBottom: '1px solid var(--light)' }}>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{user.user_name}</td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{user.user_post}</td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{user.email || '—'}</td>
-                  <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
-                    <Button variant="warning" size="small" onClick={() => handleEdit(user)}>Ред.</Button>
-                    <Button variant="danger" size="small" onClick={() => handleDelete(user.id)}>Удал.</Button>
-                  </td>
-                </tr>
-              ))}
+              {sortedUsers.map(user => {
+                const balance = getUserBalance(user.id);
+                const isCashbox = user.id === 1;
+                return (
+                  <tr key={user.id} style={{ borderBottom: '1px solid var(--light)' }}>
+                    <td style={{ padding: 'var(--spacing-sm)' }}>
+                      {user.user_name} {isCashbox && <Badge variant="info">Касса</Badge>}
+                    </td>
+                    <td style={{ padding: 'var(--spacing-sm)' }}>{user.user_post}</td>
+                    <td style={{ padding: 'var(--spacing-sm)' }}>{user.email || '—'}</td>
+                    <td style={{
+                      textAlign: 'right',
+                      padding: 'var(--spacing-sm)',
+                      fontWeight: 500,
+                      color: balance >= 0 ? 'var(--success)' : 'var(--danger)'
+                    }}>
+                      {balance.toFixed(2)} ₽
+                    </td>
+                    <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
+                      <Button variant="warning" size="small" onClick={() => handleEdit(user)}>Ред.</Button>
+                      <Button variant="danger" size="small" onClick={() => handleDelete(user.id)}>Удал.</Button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </Card>
