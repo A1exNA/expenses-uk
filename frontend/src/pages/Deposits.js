@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
+import ExportButton from '../components/ui/ExportButton';
 import '../styles/utils.css';
 
 const Deposits = () => {
@@ -58,30 +59,20 @@ const Deposits = () => {
   // Фильтрация пополнений
   const filteredDeposits = useMemo(() => {
     return deposits.filter(dep => {
-      // Фильтр по сотруднику
       if (filters.userId && Number(dep.user_id) !== Number(filters.userId)) {
         return false;
       }
 
-      // Фильтр по минимальной сумме
       if (filters.amountMin !== '' && Number(dep.amount) < parseFloat(filters.amountMin)) {
         return false;
       }
 
-      // Фильтр по максимальной сумме
       if (filters.amountMax !== '' && Number(dep.amount) > parseFloat(filters.amountMax)) {
         return false;
       }
 
-      // Фильтр по дате начала
-      if (filters.dateFrom && dep.date < filters.dateFrom) {
-        return false;
-      }
-
-      // Фильтр по дате окончания
-      if (filters.dateTo && dep.date > filters.dateTo) {
-        return false;
-      }
+      if (filters.dateFrom && dep.date < filters.dateFrom) return false;
+      if (filters.dateTo && dep.date > filters.dateTo) return false;
 
       return true;
     });
@@ -191,7 +182,6 @@ const Deposits = () => {
     setSortConfig({ key, direction });
   };
 
-  // Обработчики фильтров
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -222,6 +212,24 @@ const Deposits = () => {
             Таблица
           </Button>
           <Button variant="primary" onClick={handleAdd}>+ Добавить</Button>
+          <ExportButton 
+            data={sortedDeposits.map(dep => ({
+              id: dep.id,
+              user: getUserName(dep.user_id),
+              amount: parseFloat(dep.amount),
+              date: dep.date
+            }))}
+            headers={[
+              { key: 'id', label: 'ID', type: 'integer' },
+              { key: 'user', label: 'Сотрудник', type: 'string' },
+              { key: 'amount', label: 'Сумма (₽)', type: 'float' },
+              { key: 'date', label: 'Дата', type: 'date' }
+            ]}
+            title="Отчёт по пополнениям"
+            filename="deposits_export"
+          >
+            Экспорт Excel
+          </ExportButton>
         </div>
       </div>
 

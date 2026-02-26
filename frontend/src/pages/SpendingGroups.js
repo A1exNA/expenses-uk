@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
+import ExportButton from '../components/ui/ExportButton';
 import '../styles/utils.css';
 
 const SpendingGroups = () => {
@@ -200,6 +201,23 @@ const SpendingGroups = () => {
             Таблица
           </Button>
           <Button variant="primary" onClick={handleAdd}>+ Добавить</Button>
+          <ExportButton 
+            data={sortedGroups.map(group => ({
+              id: group.id,
+              name: group.text,
+              object_id: group.object_id,
+              object_address: getObjectAddress(group.object_id)
+            }))}
+            headers={[
+              { key: 'id', label: 'ID', type: 'integer' },
+              { key: 'name', label: 'Название группы', type: 'string' },
+              { key: 'object_address', label: 'Дом', type: 'string' }
+            ]}
+            title="Отчёт по группам расходов"
+            filename="groups_export"
+          >
+            Экспорт Excel
+          </ExportButton>
         </div>
       </div>
 
@@ -215,11 +233,11 @@ const SpendingGroups = () => {
         <Card className="mb-3">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
             <Input
-              label="Поиск"
+              label="Поиск по названию"
               name="searchText"
               value={filters.searchText}
               onChange={handleFilterChange}
-              placeholder="Название группы"
+              placeholder="Название группы..."
             />
             <Input
               type="select"

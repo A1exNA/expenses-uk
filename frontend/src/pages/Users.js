@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
+import ExportButton from '../components/ui/ExportButton';
 import '../styles/utils.css';
 
 const Users = () => {
@@ -74,7 +75,6 @@ const Users = () => {
       return userDeposits - userCheckTotal;
     }
 
-    // Для кассы (id=1) – формула: свои пополнения - свои чеки - пополнения остальных
     const othersDeposits = deposits
       .filter(d => Number(d.user_id) !== 1)
       .reduce((sum, d) => sum + Number(d.amount), 0);
@@ -86,7 +86,6 @@ const Users = () => {
     return users.filter(user => {
       const balance = getUserBalance(user.id);
 
-      // Поиск по тексту (имя, должность, email)
       if (filters.searchText) {
         const searchLower = filters.searchText.toLowerCase();
         const nameMatch = user.user_name?.toLowerCase().includes(searchLower);
@@ -95,17 +94,14 @@ const Users = () => {
         if (!nameMatch && !postMatch && !emailMatch) return false;
       }
 
-      // Фильтр по должности
       if (filters.post && !user.user_post?.toLowerCase().includes(filters.post.toLowerCase())) {
         return false;
       }
 
-      // Фильтр по минимальному остатку
       if (filters.balanceMin !== '' && balance < parseFloat(filters.balanceMin)) {
         return false;
       }
 
-      // Фильтр по максимальному остатку
       if (filters.balanceMax !== '' && balance > parseFloat(filters.balanceMax)) {
         return false;
       }
@@ -149,7 +145,6 @@ const Users = () => {
     return sortableItems;
   }, [filteredUsers, deposits, checks, expenseChecks, sortConfig]);
 
-  // Обработчики формы
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -215,7 +210,6 @@ const Users = () => {
     setSortConfig({ key, direction });
   };
 
-  // Обработчики фильтров
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -245,6 +239,26 @@ const Users = () => {
             Таблица
           </Button>
           <Button variant="primary" onClick={handleAdd}>+ Добавить</Button>
+          <ExportButton 
+            data={sortedUsers.map(user => ({
+              id: user.id,
+              name: user.user_name,
+              post: user.user_post,
+              email: user.email,
+              balance: getUserBalance(user.id)
+            }))}
+            headers={[
+              { key: 'id', label: 'ID', type: 'integer' },
+              { key: 'name', label: 'Имя', type: 'string' },
+              { key: 'post', label: 'Должность', type: 'string' },
+              { key: 'email', label: 'Email', type: 'string' },
+              { key: 'balance', label: 'Остаток (₽)', type: 'float' }
+            ]}
+            title="Отчёт по сотрудникам"
+            filename="users_export"
+          >
+            Экспорт Excel
+          </ExportButton>
         </div>
       </div>
 

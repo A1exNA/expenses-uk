@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
+import ExportButton from '../components/ui/ExportButton';
 import '../styles/utils.css';
 
 const Objects = () => {
@@ -51,7 +52,7 @@ const Objects = () => {
     fetchObjects();
   }, []);
 
-  // Функция очистки адреса
+  // Функция очистки адреса для сортировки
   const cleanAddress = (addr) => {
     if (!addr) return '';
     return addr
@@ -239,6 +240,28 @@ const Objects = () => {
             Таблица
           </Button>
           <Button variant="primary" onClick={handleAdd}>+ Добавить дом</Button>
+					<ExportButton 
+						data={sortedObjects.map(obj => ({
+							id: obj.id,
+							address: obj.object_address,
+							area: obj.object_area,
+							management_fee: obj.management_fee,
+							repair_rate: obj.current_repair_rate,
+							start_date: obj.service_start_date
+						}))}
+						headers={[
+							{ key: 'id', label: 'ID', type: 'integer' },
+							{ key: 'address', label: 'Адрес', type: 'string' },
+							{ key: 'area', label: 'Площадь (м²)', type: 'float' },
+							{ key: 'management_fee', label: 'Ставка управления (руб/м²)', type: 'float' },
+							{ key: 'repair_rate', label: 'Ставка ремонта (руб/м²)', type: 'float' },
+							{ key: 'start_date', label: 'Дата начала', type: 'date' }
+						]}
+						title="Отчёт по домам"  // ← добавляем заголовок
+						filename="objects_export"
+					>
+						Экспорт Excel
+					</ExportButton>
         </div>
       </div>
 

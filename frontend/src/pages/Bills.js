@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
+import ExportButton from '../components/ui/ExportButton';
 import '../styles/utils.css';
 
 const Bills = () => {
   const [bills, setBills] = useState([]);
   const [spendingGroups, setSpendingGroups] = useState([]);
   const [objects, setObjects] = useState([]);
-  const [allItems, setAllItems] = useState([]); // все позиции всех счетов
+  const [allItems, setAllItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('cards');
@@ -93,7 +94,7 @@ const Bills = () => {
     return `${group.text} (${address})`;
   };
 
-  // Общая сумма счёта на основе всех позиций
+  // Общая сумма счёта
   const getBillTotal = (billId) => {
     const billItems = allItems.filter(item => Number(item.bills_id) === Number(billId));
     const total = billItems.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
@@ -103,29 +104,19 @@ const Bills = () => {
   // Фильтрация счетов
   const filteredBills = useMemo(() => {
     return bills.filter(bill => {
-      // Поиск по тексту (описание счёта)
       if (filters.searchText && !bill.text.toLowerCase().includes(filters.searchText.toLowerCase())) {
-        // Также ищем в названии группы
         const groupName = spendingGroups.find(g => Number(g.id) === Number(bill.spending_group_id))?.text || '';
         if (!groupName.toLowerCase().includes(filters.searchText.toLowerCase())) {
           return false;
         }
       }
 
-      // Фильтр по группе
       if (filters.groupId && Number(bill.spending_group_id) !== Number(filters.groupId)) {
         return false;
       }
 
-      // Фильтр по дате начала
-      if (filters.dateFrom && bill.date < filters.dateFrom) {
-        return false;
-      }
-
-      // Фильтр по дате окончания
-      if (filters.dateTo && bill.date > filters.dateTo) {
-        return false;
-      }
+      if (filters.dateFrom && bill.date < filters.dateFrom) return false;
+      if (filters.dateTo && bill.date > filters.dateTo) return false;
 
       return true;
     });
@@ -257,7 +248,7 @@ const Bills = () => {
     try {
       await apiDelete(`/bills/${currentBillId}/items/${itemId}`);
       await fetchItemsForBill(currentBillId);
-      await fetchData(); // обновляем allItems
+      await fetchData();
       setEditingItem(null);
       setItemForm({ text: '', price: '', quantity: '' });
     } catch (err) {
@@ -283,7 +274,7 @@ const Bills = () => {
         await apiPost(`/bills/${currentBillId}/items`, payload);
       }
       await fetchItemsForBill(currentBillId);
-      await fetchData(); // обновляем allItems
+      await fetchData();
       setEditingItem(null);
       setItemForm({ text: '', price: '', quantity: '' });
     } catch (err) {
@@ -306,7 +297,6 @@ const Bills = () => {
     setSortConfig({ key, direction });
   };
 
-  // Обработчики фильтров
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -336,6 +326,26 @@ const Bills = () => {
             Таблица
           </Button>
           <Button variant="primary" onClick={handleAddBill}>+ Выставить счёт</Button>
+          <ExportButton 
+            data={sortedBills.map(bill => ({
+              id: bill.id,
+              group: getGroupDisplay(bill.spending_group_id),
+              text: bill.text,
+              date: bill.date,
+              total: parseFloat(getBillTotal(bill.id))
+            }))}
+            headers={[
+              { key: 'id', label: 'ID', type: 'integer' },
+              { key: 'group', label: 'Группа', type: 'string' },
+              { key: 'text', label: 'Описание', type: 'string' },
+              { key: 'date', label: 'Дата', type: 'date' },
+              { key: 'total', label: 'Сумма (₽)', type: 'float' }
+            ]}
+            title="Отчёт по счетам"
+            filename="bills_export"
+          >
+            Экспорт Excel
+          </ExportButton>
         </div>
       </div>
 

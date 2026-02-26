@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
+import ExportButton from '../components/ui/ExportButton';
 import '../styles/utils.css';
 
 const Checks = () => {
@@ -22,7 +23,7 @@ const Checks = () => {
     dateFrom: '',
     dateTo: ''
   });
-  const [showFilters, setShowFilters] = useState(false); // показывать/скрывать панель фильтров
+  const [showFilters, setShowFilters] = useState(false);
 
   const [showCheckModal, setShowCheckModal] = useState(false);
   const [editingCheck, setEditingCheck] = useState(null);
@@ -110,9 +111,7 @@ const Checks = () => {
   // Фильтрация чеков
   const filteredChecks = useMemo(() => {
     return checks.filter(check => {
-      // Поиск по тексту (описание чека)
       if (filters.searchText && !check.text.toLowerCase().includes(filters.searchText.toLowerCase())) {
-        // Также ищем в имени сотрудника и названии группы (можно добавить)
         const groupName = spendingGroups.find(g => Number(g.id) === Number(check.spending_group_id))?.text || '';
         const userName = users.find(u => Number(u.id) === Number(check.user_id))?.user_name || '';
         if (!groupName.toLowerCase().includes(filters.searchText.toLowerCase()) &&
@@ -121,25 +120,16 @@ const Checks = () => {
         }
       }
 
-      // Фильтр по сотруднику
       if (filters.userId && Number(check.user_id) !== Number(filters.userId)) {
         return false;
       }
 
-      // Фильтр по группе
       if (filters.groupId && Number(check.spending_group_id) !== Number(filters.groupId)) {
         return false;
       }
 
-      // Фильтр по дате начала
-      if (filters.dateFrom && check.date < filters.dateFrom) {
-        return false;
-      }
-
-      // Фильтр по дате окончания
-      if (filters.dateTo && check.date > filters.dateTo) {
-        return false;
-      }
+      if (filters.dateFrom && check.date < filters.dateFrom) return false;
+      if (filters.dateTo && check.date > filters.dateTo) return false;
 
       return true;
     });
@@ -185,9 +175,9 @@ const Checks = () => {
       return 0;
     });
     return sortableItems;
-  }, [filteredChecks, spendingGroups, objects, sortConfig]);
+  }, [filteredChecks, spendingGroups, objects, users, sortConfig]);
 
-  // Обработчики для чеков (без изменений, кроме возможно сброса фильтров при необходимости)
+  // Обработчики для чека
   const handleCheckInputChange = (e) => {
     const { name, value } = e.target;
     setCheckForm(prev => ({ ...prev, [name]: value }));
@@ -250,7 +240,7 @@ const Checks = () => {
     }
   };
 
-  // Обработчики для позиций (без изменений)
+  // Обработчики для позиций
   const handleItemInputChange = (e) => {
     const { name, value } = e.target;
     setItemForm(prev => ({ ...prev, [name]: value }));
@@ -327,7 +317,6 @@ const Checks = () => {
     setSortConfig({ key, direction });
   };
 
-  // Обработчики фильтров
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -358,6 +347,28 @@ const Checks = () => {
             Таблица
           </Button>
           <Button variant="primary" onClick={handleAddCheck}>+ Добавить чек</Button>
+          <ExportButton 
+            data={sortedChecks.map(check => ({
+              id: check.id,
+              group: getGroupDisplay(check.spending_group_id),
+              user: getUserName(check.user_id),
+              text: check.text,
+              date: check.date,
+              total: parseFloat(getCheckTotal(check.id))
+            }))}
+            headers={[
+              { key: 'id', label: 'ID', type: 'integer' },
+              { key: 'group', label: 'Группа', type: 'string' },
+              { key: 'user', label: 'Сотрудник', type: 'string' },
+              { key: 'text', label: 'Описание', type: 'string' },
+              { key: 'date', label: 'Дата', type: 'date' },
+              { key: 'total', label: 'Сумма (₽)', type: 'float' }
+            ]}
+            title="Отчёт по чекам"
+            filename="checks_export"
+          >
+            Экспорт Excel
+          </ExportButton>
         </div>
       </div>
 
@@ -524,8 +535,7 @@ const Checks = () => {
         </Card>
       )}
 
-      {/* Модальные окна без изменений */}
-      {/* ... (такие же как в предыдущей версии) */}
+      {/* Модальное окно для чека */}
       <Modal
         isOpen={showCheckModal}
         onClose={() => setShowCheckModal(false)}
@@ -582,6 +592,7 @@ const Checks = () => {
         </form>
       </Modal>
 
+      {/* Модальное окно для позиций */}
       <Modal
         isOpen={showItemsModal}
         onClose={() => setShowItemsModal(false)}
