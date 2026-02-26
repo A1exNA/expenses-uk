@@ -10,6 +10,7 @@ const Sidebar = () => {
     { path: '/bills', label: 'Счета', icon: '💰' },
     { path: '/checks', label: 'Чеки', icon: '🧾' },
     { path: '/deposits', label: 'Пополнения', icon: '💳' },
+    { path: '/reports/current-repair', label: 'Отчёт по ремонту', icon: '📊' }
   ];
 
   const sidebarStyle = {

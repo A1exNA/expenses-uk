@@ -1,15 +1,9 @@
 <?php
-
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
-// Разрешаем запросы с любого источника (для разработки)
+header("Content-Type: application/json");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Credentials: true");
 
-// Если это preflight запрос (OPTIONS), завершаем его сразу
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -68,7 +62,12 @@ $id = $segments[1] ?? null;
 $subResource = $segments[2] ?? null;
 $subId = $segments[3] ?? null;
 
-// Маршрутизация
+// Если $id не число и не null, значит это подресурс
+if ($id !== null && !is_numeric($id)) {
+    $subResource = $id;
+    $id = null;
+}
+
 switch ($resource) {
     case 'test':
         echo json_encode(['status' => 'ok', 'message' => 'API is working']);
@@ -163,11 +162,6 @@ switch ($resource) {
         }
         break;
     
-    case 'expense-bills':
-        $controller = new controllers\BillController($db);
-        $controller->allItems();
-        break;
-    
     case 'checks':
         $controller = new controllers\CheckController($db);
         $method = $_SERVER['REQUEST_METHOD'];
@@ -202,11 +196,6 @@ switch ($resource) {
             }
         }
         break;
-
-		case 'expense-checks':
-				$controller = new controllers\CheckController($db);
-				$controller->allItems();
-				break;
     
     case 'deposits':
         $controller = new controllers\DepositController($db);
@@ -226,9 +215,29 @@ switch ($resource) {
         }
         break;
     
+    case 'expense-checks':
+        $controller = new controllers\CheckController($db);
+        $controller->allItems();
+        break;
+    
+    case 'expense-bills':
+        $controller = new controllers\BillController($db);
+        $controller->allItems();
+        break;
+    
+    case 'reports':
+        $controller = new controllers\ReportController($db);
+        $method = $_SERVER['REQUEST_METHOD'];
+        if ($subResource === 'current-repair' && $method === 'GET') {
+            $controller->currentRepair();
+        } else {
+            utils\Response::error('Invalid report endpoint', 404);
+        }
+        break;
+    
     default:
         echo json_encode([
             'message' => 'API is running',
-            'available_endpoints' => ['test', 'users', 'objects', 'spending-groups', 'bills', 'checks', 'deposits']
+            'available_endpoints' => ['test', 'users', 'objects', 'spending-groups', 'bills', 'checks', 'deposits', 'expense-checks', 'expense-bills', 'reports']
         ]);
 }

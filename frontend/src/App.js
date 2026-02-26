@@ -9,6 +9,7 @@ import SpendingGroups from './pages/SpendingGroups';
 import Bills from './pages/Bills';
 import Checks from './pages/Checks';
 import Deposits from './pages/Deposits';
+import CurrentRepairReport from './pages/CurrentRepairReport';
 import './styles/global.css';
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
               <Route path="/bills" element={<Bills />} />
               <Route path="/checks" element={<Checks />} />
               <Route path="/deposits" element={<Deposits />} />
+              <Route path="/reports/current-repair" element={<CurrentRepairReport />} />
             </Routes>
           </main>
         </div>
