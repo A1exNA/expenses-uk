@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
+import { showSuccess, showError, showInfo } from '../components/ui/Toast';
 import '../styles/utils.css';
 
 const SpendingGroups = () => {
@@ -39,6 +40,7 @@ const SpendingGroups = () => {
       setObjects(objectsData);
     } catch (err) {
       setError(err.message);
+      showError('Ошибка загрузки данных: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -138,8 +140,9 @@ const SpendingGroups = () => {
     try {
       await apiDelete(`/spending-groups/${id}`);
       await fetchData();
+      showSuccess('Группа расходов успешно удалена');
     } catch (err) {
-      alert('Ошибка удаления: ' + err.message);
+      showError('Ошибка удаления: ' + err.message);
     }
   };
 
@@ -153,13 +156,15 @@ const SpendingGroups = () => {
 
       if (editingGroup) {
         await apiPut(`/spending-groups/${editingGroup.id}`, payload);
+        showSuccess('Группа расходов успешно обновлена');
       } else {
         await apiPost('/spending-groups', payload);
+        showSuccess('Группа расходов успешно создана');
       }
       await fetchData();
       setShowModal(false);
     } catch (err) {
-      alert('Ошибка сохранения: ' + err.message);
+      showError('Ошибка сохранения: ' + err.message);
     }
   };
 
@@ -184,6 +189,7 @@ const SpendingGroups = () => {
 
   const resetFilters = () => {
     setFilters({ searchText: '', objectId: '' });
+    showInfo('Фильтры сброшены');
   };
 
   if (loading && groups.length === 0) return <div>Загрузка...</div>;
@@ -205,7 +211,6 @@ const SpendingGroups = () => {
             data={sortedGroups.map(group => ({
               id: group.id,
               name: group.text,
-              object_id: group.object_id,
               object_address: getObjectAddress(group.object_id)
             }))}
             headers={[

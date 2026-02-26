@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
+import VirtualizedTable from '../components/ui/VirtualizedTable';
+import { showSuccess, showError, showInfo } from '../components/ui/Toast';
 import '../styles/utils.css';
 
 const Objects = () => {
@@ -43,6 +45,7 @@ const Objects = () => {
       setObjects(data);
     } catch (err) {
       setError(err.message);
+      showError('Ошибка загрузки данных: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -161,8 +164,9 @@ const Objects = () => {
     try {
       await apiDelete(`/objects/${id}`);
       setObjects(objects.filter(obj => obj.id !== id));
+      showSuccess('Дом успешно удалён');
     } catch (err) {
-      alert('Ошибка при удалении: ' + err.message);
+      showError('Ошибка при удалении: ' + err.message);
     }
   };
 
@@ -179,13 +183,15 @@ const Objects = () => {
       if (editingObject) {
         const updated = await apiPut(`/objects/${editingObject.id}`, payload);
         setObjects(objects.map(obj => obj.id === editingObject.id ? updated : obj));
+        showSuccess('Дом успешно обновлён');
       } else {
         const created = await apiPost('/objects', payload);
         setObjects([created, ...objects]);
+        showSuccess('Дом успешно создан');
       }
       setShowModal(false);
     } catch (err) {
-      alert('Ошибка сохранения: ' + err.message);
+      showError('Ошибка сохранения: ' + err.message);
     }
   };
 
@@ -220,10 +226,33 @@ const Objects = () => {
       dateFrom: '',
       dateTo: ''
     });
+    showInfo('Фильтры сброшены');
   };
 
   const formatDate = (dateStr) => dateStr.split('-').reverse().join('.');
   const formatCurrency = (value) => new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2 }).format(value);
+
+  // Колонки для виртуализированной таблицы
+  const tableColumns = [
+    { title: 'Адрес', field: 'object_address', width: 250 },
+    { title: 'Площадь', field: 'object_area', align: 'right', width: 100, render: (obj) => Number(obj.object_area).toFixed(2) },
+    { title: 'Ставка упр.', field: 'management_fee', align: 'right', width: 100, render: (obj) => formatCurrency(obj.management_fee) },
+    { title: 'Ставка рем.', field: 'current_repair_rate', align: 'right', width: 100, render: (obj) => formatCurrency(obj.current_repair_rate) },
+    { title: 'Всего упр.', align: 'right', width: 120, render: (obj) => formatCurrency(Number(obj.management_fee) * Number(obj.object_area)) },
+    { title: 'Всего рем.', align: 'right', width: 120, render: (obj) => formatCurrency(Number(obj.current_repair_rate) * Number(obj.object_area)) },
+    { title: 'Дата', field: 'service_start_date', width: 100, render: (obj) => formatDate(obj.service_start_date) },
+    { 
+      title: 'Действия', 
+      width: 150,
+      align: 'center',
+      render: (obj) => (
+        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
+          <Button variant="warning" size="small" onClick={() => handleEdit(obj)}>Ред.</Button>
+          <Button variant="danger" size="small" onClick={() => handleDelete(obj.id)}>Удал.</Button>
+        </div>
+      )
+    }
+  ];
 
   if (loading && objects.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
@@ -240,28 +269,28 @@ const Objects = () => {
             Таблица
           </Button>
           <Button variant="primary" onClick={handleAdd}>+ Добавить дом</Button>
-					<ExportButton 
-						data={sortedObjects.map(obj => ({
-							id: obj.id,
-							address: obj.object_address,
-							area: obj.object_area,
-							management_fee: obj.management_fee,
-							repair_rate: obj.current_repair_rate,
-							start_date: obj.service_start_date
-						}))}
-						headers={[
-							{ key: 'id', label: 'ID', type: 'integer' },
-							{ key: 'address', label: 'Адрес', type: 'string' },
-							{ key: 'area', label: 'Площадь (м²)', type: 'float' },
-							{ key: 'management_fee', label: 'Ставка управления (руб/м²)', type: 'float' },
-							{ key: 'repair_rate', label: 'Ставка ремонта (руб/м²)', type: 'float' },
-							{ key: 'start_date', label: 'Дата начала', type: 'date' }
-						]}
-						title="Отчёт по домам"  // ← добавляем заголовок
-						filename="objects_export"
-					>
-						Экспорт Excel
-					</ExportButton>
+          <ExportButton 
+            data={sortedObjects.map(obj => ({
+              id: obj.id,
+              address: obj.object_address,
+              area: obj.object_area,
+              management_fee: obj.management_fee,
+              repair_rate: obj.current_repair_rate,
+              start_date: obj.service_start_date
+            }))}
+            headers={[
+              { key: 'id', label: 'ID', type: 'integer' },
+              { key: 'address', label: 'Адрес', type: 'string' },
+              { key: 'area', label: 'Площадь (м²)', type: 'float' },
+              { key: 'management_fee', label: 'Ставка управления (руб/м²)', type: 'float' },
+              { key: 'repair_rate', label: 'Ставка ремонта (руб/м²)', type: 'float' },
+              { key: 'start_date', label: 'Дата начала', type: 'date' }
+            ]}
+            title="Отчёт по домам"
+            filename="objects_export"
+          >
+            Экспорт Excel
+          </ExportButton>
         </div>
       </div>
 
@@ -430,45 +459,11 @@ const Objects = () => {
         </div>
       ) : (
         <Card>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid var(--light)' }}>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('address')}>
-                  Адрес {sortConfig.key === 'address' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('area')}>
-                  Площадь {sortConfig.key === 'area' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Ставка упр.</th>
-                <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Ставка рем.</th>
-                <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('management_total')}>
-                  Всего упр. {sortConfig.key === 'management_total' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('repair_total')}>
-                  Всего рем. {sortConfig.key === 'repair_total' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)' }}>Дата</th>
-                <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedObjects.map(obj => (
-                <tr key={obj.id} style={{ borderBottom: '1px solid var(--light)' }}>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{obj.object_address}</td>
-                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{Number(obj.object_area).toFixed(2)} м²</td>
-                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{formatCurrency(obj.management_fee)}</td>
-                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{formatCurrency(obj.current_repair_rate)}</td>
-                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{formatCurrency(Number(obj.management_fee) * Number(obj.object_area))}</td>
-                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{formatCurrency(Number(obj.current_repair_rate) * Number(obj.object_area))}</td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{formatDate(obj.service_start_date)}</td>
-                  <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
-                    <Button variant="warning" size="small" onClick={() => handleEdit(obj)}>Ред.</Button>
-                    <Button variant="danger" size="small" onClick={() => handleDelete(obj.id)}>Удал.</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <VirtualizedTable
+            columns={tableColumns}
+            data={sortedObjects}
+            rowHeight={50}
+          />
         </Card>
       )}
 

@@ -1,7 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
+import Breadcrumbs from './components/ui/Breadcrumbs';
 import Dashboard from './pages/Dashboard';
 import Objects from './pages/Objects';
 import Users from './pages/Users';
@@ -20,6 +22,7 @@ function App() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <Header />
           <main className="page-content">
+						<Breadcrumbs />
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/objects" element={<Objects />} />
@@ -33,6 +36,7 @@ function App() {
           </main>
         </div>
       </div>
+      <Toaster />
     </Router>
   );
 }
