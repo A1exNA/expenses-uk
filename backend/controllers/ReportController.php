@@ -48,6 +48,7 @@ class ReportController {
         $placeholders = implode(',', array_fill(0, count($groupIds), '?'));
         $types = str_repeat('i', count($groupIds));
 
+        // Получаем счета (без изменений)
         $billsSql = "SELECT id, date, text FROM bills 
                      WHERE spending_group_id IN ($placeholders) 
                      AND DATE_FORMAT(date, '%Y-%m') = ?";
@@ -80,6 +81,7 @@ class ReportController {
             ];
         }
 
+        // Получаем чеки с коэффициентом 1.1
         $checksSql = "SELECT id, date, text FROM checks 
                       WHERE spending_group_id IN ($placeholders) 
                       AND DATE_FORMAT(date, '%Y-%m') = ?";
@@ -96,12 +98,14 @@ class ReportController {
             $itemsResult = $itemsStmt->get_result();
             $items = [];
             while ($item = $itemsResult->fetch_assoc()) {
+                // Применяем коэффициент 1.1 к сумме позиции
+                $total = (float)$item['price'] * (float)$item['quantity'] * 1.10;
                 $items[] = [
                     'item_id' => $item['id'],
                     'text' => $item['text'],
                     'price' => (float)$item['price'],
                     'quantity' => (float)$item['quantity'],
-                    'total' => (float)$item['price'] * (float)$item['quantity']
+                    'total' => $total
                 ];
             }
             $checks[] = [
