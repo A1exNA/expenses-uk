@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
+import VirtualizedTable from '../components/ui/VirtualizedTable';
+import { showSuccess, showError, showInfo } from '../components/ui/Toast';
 import '../styles/utils.css';
 
 const Deposits = () => {
@@ -42,6 +44,7 @@ const Deposits = () => {
         setUsers(usersData);
       } catch (err) {
         setError(err.message);
+        showError('Ошибка загрузки данных: ' + err.message);
       } finally {
         setLoading(false);
       }
@@ -55,6 +58,7 @@ const Deposits = () => {
   };
 
   const formatDate = (dateStr) => dateStr.split('-').reverse().join('.');
+  const formatCurrency = (value) => new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2 }).format(value);
 
   // Фильтрация пополнений
   const filteredDeposits = useMemo(() => {
@@ -139,15 +143,16 @@ const Deposits = () => {
     try {
       await apiDelete(`/deposits/${id}`);
       setDeposits(deposits.filter(d => d.id !== id));
+      showSuccess('Запись о пополнении успешно удалена');
     } catch (err) {
-      alert('Ошибка удаления: ' + err.message);
+      showError('Ошибка удаления: ' + err.message);
     }
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     if (!formData.user_id || !formData.amount || !formData.date) {
-      alert('Заполните все поля');
+      showError('Заполните все поля');
       return;
     }
     try {
@@ -158,14 +163,16 @@ const Deposits = () => {
       };
       if (editingDeposit) {
         await apiPut(`/deposits/${editingDeposit.id}`, payload);
+        showSuccess('Запись о пополнении успешно обновлена');
       } else {
         await apiPost('/deposits', payload);
+        showSuccess('Запись о пополнении успешно создана');
       }
       const updated = await apiGet('/deposits');
       setDeposits(updated);
       setShowModal(false);
     } catch (err) {
-      alert('Ошибка сохранения: ' + err.message);
+      showError('Ошибка сохранения: ' + err.message);
     }
   };
 
@@ -195,7 +202,26 @@ const Deposits = () => {
       dateFrom: '',
       dateTo: ''
     });
+    showInfo('Фильтры сброшены');
   };
+
+  // Колонки для виртуализированной таблицы
+  const tableColumns = [
+    { title: 'Сотрудник', field: 'user', width: 250, render: (dep) => getUserName(dep.user_id) },
+    { title: 'Сумма', align: 'right', width: 150, render: (dep) => formatCurrency(Number(dep.amount)) },
+    { title: 'Дата', field: 'date', width: 120, render: (dep) => formatDate(dep.date) },
+    { 
+      title: 'Действия', 
+      width: 150,
+      align: 'center',
+      render: (dep) => (
+        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
+          <Button variant="warning" size="small" onClick={() => handleEdit(dep)}>Ред.</Button>
+          <Button variant="danger" size="small" onClick={() => handleDelete(dep.id)}>Удал.</Button>
+        </div>
+      )
+    }
+  ];
 
   if (loading) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
@@ -342,37 +368,11 @@ const Deposits = () => {
         </div>
       ) : (
         <Card>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid var(--light)' }}>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('user')}>
-                  Сотрудник {sortConfig.key === 'user' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('amount')}>
-                  Сумма {sortConfig.key === 'amount' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('date')}>
-                  Дата {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedDeposits.map(dep => (
-                <tr key={dep.id} style={{ borderBottom: '1px solid var(--light)' }}>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{getUserName(dep.user_id)}</td>
-                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)', fontWeight: 500 }}>
-                    {Number(dep.amount).toFixed(2)} ₽
-                  </td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{formatDate(dep.date)}</td>
-                  <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
-                    <Button variant="warning" size="small" onClick={() => handleEdit(dep)}>Ред.</Button>
-                    <Button variant="danger" size="small" onClick={() => handleDelete(dep.id)}>Удал.</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <VirtualizedTable
+            columns={tableColumns}
+            data={sortedDeposits}
+            rowHeight={50}
+          />
         </Card>
       )}
 

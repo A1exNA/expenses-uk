@@ -1,0 +1,49 @@
+.virtualized-table {
+  border: 1px solid var(--light);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  background: var(--card-bg);
+}
+
+.virtualized-table__header {
+  display: flex;
+  background-color: var(--secondary);
+  color: white;
+  font-weight: 500;
+  border-bottom: 2px solid var(--light);
+}
+
+.virtualized-table__header-cell {
+  padding: var(--spacing-sm) var(--spacing-md);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.virtualized-table__row {
+  display: flex;
+  border-bottom: 1px solid var(--light);
+  background-color: var(--card-bg);
+  transition: background-color 0.2s;
+}
+
+.virtualized-table__row:hover {
+  background-color: var(--light);
+}
+
+.virtualized-table__cell {
+  padding: var(--spacing-sm) var(--spacing-md);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-center {
+  text-align: center;
+}

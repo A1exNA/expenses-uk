@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
+import VirtualizedTable from '../components/ui/VirtualizedTable';
+import { showSuccess, showError, showInfo } from '../components/ui/Toast';
 import '../styles/utils.css';
 
 const Users = () => {
@@ -47,6 +49,7 @@ const Users = () => {
       setExpenseChecks(expenseChecksData);
     } catch (err) {
       setError(err.message);
+      showError('Ошибка загрузки данных: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -171,8 +174,9 @@ const Users = () => {
     try {
       await apiDelete(`/users/${id}`);
       setUsers(users.filter(u => u.id !== id));
+      showSuccess('Сотрудник успешно удалён');
     } catch (err) {
-      alert('Ошибка удаления: ' + err.message);
+      showError('Ошибка при удалении: ' + err.message);
     }
   };
 
@@ -187,13 +191,15 @@ const Users = () => {
       if (editingUser) {
         const updated = await apiPut(`/users/${editingUser.id}`, payload);
         setUsers(users.map(u => u.id === editingUser.id ? updated : u));
+        showSuccess('Сотрудник успешно обновлён');
       } else {
         const created = await apiPost('/users', payload);
         setUsers([created, ...users]);
+        showSuccess('Сотрудник успешно создан');
       }
       setShowModal(false);
     } catch (err) {
-      alert('Ошибка сохранения: ' + err.message);
+      showError('Ошибка сохранения: ' + err.message);
     }
   };
 
@@ -222,7 +228,43 @@ const Users = () => {
       balanceMin: '',
       balanceMax: ''
     });
+    showInfo('Фильтры сброшены');
   };
+
+  // Колонки для виртуализированной таблицы
+  const tableColumns = [
+    { title: 'Имя', field: 'user_name', width: 200 },
+    { title: 'Должность', field: 'user_post', width: 200 },
+    { title: 'Email', field: 'email', width: 250 },
+    { 
+      title: 'Остаток', 
+      align: 'right', 
+      width: 150,
+      render: (user) => {
+        const balance = getUserBalance(user.id);
+        const isCashbox = user.id === 1;
+        return (
+          <span style={{ 
+            fontWeight: 500,
+            color: balance >= 0 ? 'var(--success)' : 'var(--danger)'
+          }}>
+            {balance.toFixed(2)} ₽ {isCashbox && '(Касса)'}
+          </span>
+        );
+      }
+    },
+    { 
+      title: 'Действия', 
+      width: 150,
+      align: 'center',
+      render: (user) => (
+        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
+          <Button variant="warning" size="small" onClick={() => handleEdit(user)}>Ред.</Button>
+          <Button variant="danger" size="small" onClick={() => handleDelete(user.id)}>Удал.</Button>
+        </div>
+      )
+    }
+  ];
 
   if (loading && users.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
@@ -375,52 +417,11 @@ const Users = () => {
         </div>
       ) : (
         <Card>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid var(--light)' }}>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('name')}>
-                  Имя {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('post')}>
-                  Должность {sortConfig.key === 'post' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('email')}>
-                  Email {sortConfig.key === 'email' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('balance')}>
-                  Остаток {sortConfig.key === 'balance' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedUsers.map(user => {
-                const balance = getUserBalance(user.id);
-                const isCashbox = user.id === 1;
-                return (
-                  <tr key={user.id} style={{ borderBottom: '1px solid var(--light)' }}>
-                    <td style={{ padding: 'var(--spacing-sm)' }}>
-                      {user.user_name} {isCashbox && <Badge variant="info">Касса</Badge>}
-                    </td>
-                    <td style={{ padding: 'var(--spacing-sm)' }}>{user.user_post}</td>
-                    <td style={{ padding: 'var(--spacing-sm)' }}>{user.email || '—'}</td>
-                    <td style={{
-                      textAlign: 'right',
-                      padding: 'var(--spacing-sm)',
-                      fontWeight: 500,
-                      color: balance >= 0 ? 'var(--success)' : 'var(--danger)'
-                    }}>
-                      {balance.toFixed(2)} ₽
-                    </td>
-                    <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
-                      <Button variant="warning" size="small" onClick={() => handleEdit(user)}>Ред.</Button>
-                      <Button variant="danger" size="small" onClick={() => handleDelete(user.id)}>Удал.</Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <VirtualizedTable
+            columns={tableColumns}
+            data={sortedUsers}
+            rowHeight={50}
+          />
         </Card>
       )}
 

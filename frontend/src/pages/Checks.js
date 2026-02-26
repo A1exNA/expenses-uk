@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
+import VirtualizedTable from '../components/ui/VirtualizedTable';
+import { showSuccess, showError, showInfo } from '../components/ui/Toast';
 import '../styles/utils.css';
 
 const Checks = () => {
@@ -63,6 +65,7 @@ const Checks = () => {
       setAllItems(Array.isArray(itemsData) ? itemsData : []);
     } catch (err) {
       setError(err.message);
+      showError('Ошибка загрузки данных: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -78,7 +81,7 @@ const Checks = () => {
       const data = await apiGet(`/checks/${checkId}/items`);
       setItems(data);
     } catch (err) {
-      alert('Ошибка загрузки позиций: ' + err.message);
+      showError('Ошибка загрузки позиций: ' + err.message);
     }
   };
 
@@ -210,15 +213,16 @@ const Checks = () => {
     try {
       await apiDelete(`/checks/${id}`);
       await fetchData();
+      showSuccess('Чек успешно удалён');
     } catch (err) {
-      alert('Ошибка удаления: ' + err.message);
+      showError('Ошибка удаления: ' + err.message);
     }
   };
 
   const handleSaveCheck = async (e) => {
     e.preventDefault();
     if (!checkForm.spending_group_id || !checkForm.user_id) {
-      alert('Выберите группу и сотрудника');
+      showError('Выберите группу и сотрудника');
       return;
     }
     try {
@@ -230,13 +234,15 @@ const Checks = () => {
       };
       if (editingCheck) {
         await apiPut(`/checks/${editingCheck.id}`, payload);
+        showSuccess('Чек успешно обновлён');
       } else {
         await apiPost('/checks', payload);
+        showSuccess('Чек успешно создан');
       }
       await fetchData();
       setShowCheckModal(false);
     } catch (err) {
-      alert('Ошибка сохранения чека: ' + err.message);
+      showError('Ошибка сохранения чека: ' + err.message);
     }
   };
 
@@ -271,15 +277,16 @@ const Checks = () => {
       await fetchData();
       setEditingItem(null);
       setItemForm({ text: '', price: '', quantity: '' });
+      showSuccess('Позиция удалена');
     } catch (err) {
-      alert('Ошибка удаления позиции: ' + err.message);
+      showError('Ошибка удаления позиции: ' + err.message);
     }
   };
 
   const handleSaveItem = async (e) => {
     e.preventDefault();
     if (!itemForm.text || !itemForm.price || !itemForm.quantity) {
-      alert('Заполните все поля');
+      showError('Заполните все поля');
       return;
     }
     try {
@@ -290,19 +297,22 @@ const Checks = () => {
       };
       if (editingItem) {
         await apiPut(`/checks/${currentCheckId}/items/${editingItem.id}`, payload);
+        showSuccess('Позиция обновлена');
       } else {
         await apiPost(`/checks/${currentCheckId}/items`, payload);
+        showSuccess('Позиция добавлена');
       }
       await fetchItemsForCheck(currentCheckId);
       await fetchData();
       setEditingItem(null);
       setItemForm({ text: '', price: '', quantity: '' });
     } catch (err) {
-      alert('Ошибка сохранения позиции: ' + err.message);
+      showError('Ошибка сохранения позиции: ' + err.message);
     }
   };
 
   const formatDate = (dateStr) => dateStr.split('-').reverse().join('.');
+  const formatCurrency = (value) => new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2 }).format(value);
 
   const requestSort = (key) => {
     let direction = 'asc';
@@ -330,7 +340,29 @@ const Checks = () => {
       dateFrom: '',
       dateTo: ''
     });
+    showInfo('Фильтры сброшены');
   };
+
+  // Колонки для виртуализированной таблицы
+  const tableColumns = [
+    { title: 'Группа', field: 'group', width: 250, render: (check) => getGroupDisplay(check.spending_group_id) },
+    { title: 'Сотрудник', field: 'user', width: 200, render: (check) => getUserName(check.user_id) },
+    { title: 'Описание', field: 'text', width: 300 },
+    { title: 'Дата', field: 'date', width: 100, render: (check) => formatDate(check.date) },
+    { title: 'Сумма', align: 'right', width: 120, render: (check) => formatCurrency(parseFloat(getCheckTotal(check.id))) },
+    { 
+      title: 'Действия', 
+      width: 200,
+      align: 'center',
+      render: (check) => (
+        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
+          <Button variant="info" size="small" onClick={() => handleManageItems(check.id)}>Поз.</Button>
+          <Button variant="warning" size="small" onClick={() => handleEditCheck(check)}>Ред.</Button>
+          <Button variant="danger" size="small" onClick={() => handleDeleteCheck(check.id)}>Удал.</Button>
+        </div>
+      )
+    }
+  ];
 
   if (loading && checks.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
@@ -435,7 +467,6 @@ const Checks = () => {
         </Card>
       )}
 
-      {/* Сортировка для карточек */}
       {viewMode === 'cards' && (
         <div className="flex-between mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
@@ -494,44 +525,11 @@ const Checks = () => {
         </div>
       ) : (
         <Card>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid var(--light)' }}>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('group')}>
-                  Группа {sortConfig.key === 'group' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('user')}>
-                  Сотрудник {sortConfig.key === 'user' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)' }}>Описание</th>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('date')}>
-                  Дата {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('total')}>
-                  Сумма {sortConfig.key === 'total' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedChecks.map(check => (
-                <tr key={check.id} style={{ borderBottom: '1px solid var(--light)' }}>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{getGroupDisplay(check.spending_group_id)}</td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{getUserName(check.user_id)}</td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{check.text}</td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{formatDate(check.date)}</td>
-                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)', fontWeight: 500 }}>
-                    {getCheckTotal(check.id)} ₽
-                  </td>
-                  <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
-                    <Button variant="info" size="small" onClick={() => handleManageItems(check.id)}>Поз.</Button>
-                    <Button variant="warning" size="small" onClick={() => handleEditCheck(check)}>Ред.</Button>
-                    <Button variant="danger" size="small" onClick={() => handleDeleteCheck(check.id)}>Удал.</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <VirtualizedTable
+            columns={tableColumns}
+            data={sortedChecks}
+            rowHeight={50}
+          />
         </Card>
       )}
 

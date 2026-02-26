@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
+import VirtualizedTable from '../components/ui/VirtualizedTable';
+import { showSuccess, showError, showInfo } from '../components/ui/Toast';
 import '../styles/utils.css';
 
 const Bills = () => {
@@ -58,6 +60,7 @@ const Bills = () => {
       setAllItems(Array.isArray(itemsData) ? itemsData : []);
     } catch (err) {
       setError(err.message);
+      showError('Ошибка загрузки данных: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -73,7 +76,7 @@ const Bills = () => {
       const data = await apiGet(`/bills/${billId}/items`);
       setItems(data);
     } catch (err) {
-      alert('Ошибка загрузки позиций: ' + err.message);
+      showError('Ошибка загрузки позиций: ' + err.message);
     }
   };
 
@@ -191,15 +194,16 @@ const Bills = () => {
     try {
       await apiDelete(`/bills/${id}`);
       await fetchData();
+      showSuccess('Счёт успешно удалён');
     } catch (err) {
-      alert('Ошибка удаления: ' + err.message);
+      showError('Ошибка удаления: ' + err.message);
     }
   };
 
   const handleSaveBill = async (e) => {
     e.preventDefault();
     if (!billForm.spending_group_id) {
-      alert('Выберите группу расходов');
+      showError('Выберите группу расходов');
       return;
     }
     try {
@@ -210,13 +214,15 @@ const Bills = () => {
       };
       if (editingBill) {
         await apiPut(`/bills/${editingBill.id}`, payload);
+        showSuccess('Счёт успешно обновлён');
       } else {
         await apiPost('/bills', payload);
+        showSuccess('Счёт успешно создан');
       }
       await fetchData();
       setShowBillModal(false);
     } catch (err) {
-      alert('Ошибка сохранения счёта: ' + err.message);
+      showError('Ошибка сохранения счёта: ' + err.message);
     }
   };
 
@@ -251,15 +257,16 @@ const Bills = () => {
       await fetchData();
       setEditingItem(null);
       setItemForm({ text: '', price: '', quantity: '' });
+      showSuccess('Позиция удалена');
     } catch (err) {
-      alert('Ошибка удаления позиции: ' + err.message);
+      showError('Ошибка удаления позиции: ' + err.message);
     }
   };
 
   const handleSaveItem = async (e) => {
     e.preventDefault();
     if (!itemForm.text || !itemForm.price || !itemForm.quantity) {
-      alert('Заполните все поля');
+      showError('Заполните все поля');
       return;
     }
     try {
@@ -270,19 +277,22 @@ const Bills = () => {
       };
       if (editingItem) {
         await apiPut(`/bills/${currentBillId}/items/${editingItem.id}`, payload);
+        showSuccess('Позиция обновлена');
       } else {
         await apiPost(`/bills/${currentBillId}/items`, payload);
+        showSuccess('Позиция добавлена');
       }
       await fetchItemsForBill(currentBillId);
       await fetchData();
       setEditingItem(null);
       setItemForm({ text: '', price: '', quantity: '' });
     } catch (err) {
-      alert('Ошибка сохранения позиции: ' + err.message);
+      showError('Ошибка сохранения позиции: ' + err.message);
     }
   };
 
   const formatDate = (dateStr) => dateStr.split('-').reverse().join('.');
+  const formatCurrency = (value) => new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2 }).format(value);
 
   const requestSort = (key) => {
     let direction = 'asc';
@@ -309,7 +319,28 @@ const Bills = () => {
       dateFrom: '',
       dateTo: ''
     });
+    showInfo('Фильтры сброшены');
   };
+
+  // Колонки для виртуализированной таблицы
+  const tableColumns = [
+    { title: 'Группа', field: 'group', width: 250, render: (bill) => getGroupDisplay(bill.spending_group_id) },
+    { title: 'Описание', field: 'text', width: 300 },
+    { title: 'Дата', field: 'date', width: 100, render: (bill) => formatDate(bill.date) },
+    { title: 'Сумма', align: 'right', width: 120, render: (bill) => formatCurrency(parseFloat(getBillTotal(bill.id))) },
+    { 
+      title: 'Действия', 
+      width: 200,
+      align: 'center',
+      render: (bill) => (
+        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
+          <Button variant="info" size="small" onClick={() => handleManageItems(bill.id)}>Поз.</Button>
+          <Button variant="warning" size="small" onClick={() => handleEditBill(bill)}>Ред.</Button>
+          <Button variant="danger" size="small" onClick={() => handleDeleteBill(bill.id)}>Удал.</Button>
+        </div>
+      )
+    }
+  ];
 
   if (loading && bills.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
@@ -452,40 +483,11 @@ const Bills = () => {
         </div>
       ) : (
         <Card>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid var(--light)' }}>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('group')}>
-                  Группа {sortConfig.key === 'group' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)' }}>Описание</th>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('date')}>
-                  Дата {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('total')}>
-                  Сумма {sortConfig.key === 'total' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedBills.map(bill => (
-                <tr key={bill.id} style={{ borderBottom: '1px solid var(--light)' }}>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{getGroupDisplay(bill.spending_group_id)}</td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{bill.text}</td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{formatDate(bill.date)}</td>
-                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)', fontWeight: 500 }}>
-                    {getBillTotal(bill.id)} ₽
-                  </td>
-                  <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
-                    <Button variant="info" size="small" onClick={() => handleManageItems(bill.id)}>Поз.</Button>
-                    <Button variant="warning" size="small" onClick={() => handleEditBill(bill)}>Ред.</Button>
-                    <Button variant="danger" size="small" onClick={() => handleDeleteBill(bill.id)}>Удал.</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <VirtualizedTable
+            columns={tableColumns}
+            data={sortedBills}
+            rowHeight={50}
+          />
         </Card>
       )}
 
