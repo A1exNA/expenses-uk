@@ -159,8 +159,8 @@ const Objects = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этот дом?')) return;
+  const handleDelete = async (id, address) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить дом "${address}"?`)) return;
     try {
       await apiDelete(`/objects/${id}`);
       setObjects(objects.filter(obj => obj.id !== id));
@@ -247,8 +247,22 @@ const Objects = () => {
       align: 'center',
       render: (obj) => (
         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
-          <Button variant="warning" size="small" onClick={() => handleEdit(obj)}>Ред.</Button>
-          <Button variant="danger" size="small" onClick={() => handleDelete(obj.id)}>Удал.</Button>
+          <Button 
+            variant="warning" 
+            size="small" 
+            onClick={() => handleEdit(obj)}
+            ariaLabel={`Редактировать дом ${obj.object_address}`}
+          >
+            Ред.
+          </Button>
+          <Button 
+            variant="danger" 
+            size="small" 
+            onClick={() => handleDelete(obj.id, obj.object_address)}
+            ariaLabel={`Удалить дом ${obj.object_address}`}
+          >
+            Удал.
+          </Button>
         </div>
       )
     }
@@ -262,13 +276,29 @@ const Objects = () => {
       <div className="flex-between mb-3">
         <h2 style={{ fontSize: 'var(--font-size-2xl)' }}>Дома (объекты)</h2>
         <div className="flex gap-1">
-          <Button variant={viewMode === 'cards' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('cards')}>
+          <Button 
+            variant={viewMode === 'cards' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('cards')}
+            ariaLabel="Показать карточками"
+          >
             Карточки
           </Button>
-          <Button variant={viewMode === 'table' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('table')}>
+          <Button 
+            variant={viewMode === 'table' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('table')}
+            ariaLabel="Показать таблицей"
+          >
             Таблица
           </Button>
-          <Button variant="primary" onClick={handleAdd}>+ Добавить дом</Button>
+          <Button 
+            variant="primary" 
+            onClick={handleAdd}
+            ariaLabel="Добавить новый дом"
+          >
+            + Добавить дом
+          </Button>
           <ExportButton 
             data={sortedObjects.map(obj => ({
               id: obj.id,
@@ -296,7 +326,12 @@ const Objects = () => {
 
       {/* Кнопка показа/скрытия фильтров */}
       <div className="mb-3">
-        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+        <Button 
+          variant="info" 
+          size="small" 
+          onClick={() => setShowFilters(!showFilters)}
+          ariaLabel={showFilters ? 'Скрыть панель фильтров' : 'Показать панель фильтров'}
+        >
           {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
         </Button>
       </div>
@@ -311,6 +346,7 @@ const Objects = () => {
               value={filters.searchText}
               onChange={handleFilterChange}
               placeholder="Часть адреса..."
+              ariaDescribedBy="search-help"
             />
             <Input
               label="Площадь от"
@@ -376,7 +412,14 @@ const Objects = () => {
             />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
-            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+            <Button 
+              variant="neutral" 
+              size="small" 
+              onClick={resetFilters}
+              ariaLabel="Сбросить все фильтры"
+            >
+              Сбросить фильтры
+            </Button>
           </div>
         </Card>
       )}
@@ -386,7 +429,13 @@ const Objects = () => {
         <div className="flex-between mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray)' }}>Сортировать:</span>
-            <select onChange={handleSortChange} value={`${sortConfig.key}-${sortConfig.direction}`} className="input" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}>
+            <select 
+              onChange={handleSortChange} 
+              value={`${sortConfig.key}-${sortConfig.direction}`} 
+              className="input" 
+              style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}
+              aria-label="Выберите поле для сортировки"
+            >
               <option value="address-asc">Адрес (А-Я)</option>
               <option value="address-desc">Адрес (Я-А)</option>
               <option value="area-asc">Площадь (возр.)</option>
@@ -401,7 +450,11 @@ const Objects = () => {
       )}
 
       {sortedObjects.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет домов, соответствующих фильтрам.</p></Card>
+        <Card>
+          <p style={{ textAlign: 'center', color: 'var(--gray)' }} role="status">
+            Нет домов, соответствующих фильтрам.
+          </p>
+        </Card>
       ) : viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {sortedObjects.map(obj => (
@@ -451,8 +504,22 @@ const Objects = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
-                <Button variant="warning" size="small" onClick={() => handleEdit(obj)}>✎ Ред.</Button>
-                <Button variant="danger" size="small" onClick={() => handleDelete(obj.id)}>× Удал.</Button>
+                <Button 
+                  variant="warning" 
+                  size="small" 
+                  onClick={() => handleEdit(obj)}
+                  ariaLabel={`Редактировать дом ${obj.object_address}`}
+                >
+                  ✎ Ред.
+                </Button>
+                <Button 
+                  variant="danger" 
+                  size="small" 
+                  onClick={() => handleDelete(obj.id, obj.object_address)}
+                  ariaLabel={`Удалить дом ${obj.object_address}`}
+                >
+                  × Удал.
+                </Button>
               </div>
             </Card>
           ))}
@@ -473,11 +540,25 @@ const Objects = () => {
         title={editingObject ? 'Редактировать дом' : 'Новый дом'}
         footer={
           <>
-            <Button variant="neutral" onClick={() => setShowModal(false)}>Отмена</Button>
-            <Button variant="success" type="submit" form="objectForm">Сохранить</Button>
+            <Button 
+              variant="neutral" 
+              onClick={() => setShowModal(false)}
+              ariaLabel="Отменить"
+            >
+              Отмена
+            </Button>
+            <Button 
+              variant="success" 
+              type="submit" 
+              form="objectForm"
+              ariaLabel="Сохранить дом"
+            >
+              Сохранить
+            </Button>
           </>
         }
       >
+
         <form id="objectForm" onSubmit={handleSave}>
           <Input
             label="Адрес"
@@ -485,7 +566,9 @@ const Objects = () => {
             value={formData.object_address}
             onChange={handleInputChange}
             required
+            ariaDescribedBy="address-help"
           />
+          <div id="address-help" className="visually-hidden">Введите полный адрес дома</div>
           <Input
             label="Площадь (м²)"
             type="number"

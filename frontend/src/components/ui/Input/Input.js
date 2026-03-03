@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import styles from './Input.module.css';
 
 const Input = ({
@@ -12,12 +12,26 @@ const Input = ({
   placeholder = '',
   disabled = false,
   className = '',
+  fullWidth = false,
+  ariaDescribedBy,
+  children,
   ...props
 }) => {
-  const inputId = `input-${name}-${Math.random().toString(36).substr(2, 9)}`;
+  // Используем useId для генерации стабильного ID
+  const id = useId();
+  const inputId = `input-${name}-${id}`;
+  const errorId = error ? `${inputId}-error` : undefined;
   
+  const inputClasses = [
+    styles.input,
+    error ? styles.error : '',
+    className
+  ].filter(Boolean).join(' ');
+
+  const fullWidthStyle = fullWidth ? { width: '100%' } : {};
+
   return (
-    <div className={styles.formGroup}>
+    <div className={styles.formGroup} style={fullWidthStyle}>
       {label && (
         <label htmlFor={inputId} className={styles.label}>
           {label}{required && ' *'}
@@ -32,7 +46,10 @@ const Input = ({
           required={required}
           placeholder={placeholder}
           disabled={disabled}
-          className={`${styles.input} ${error ? styles.error : ''} ${className}`}
+          className={inputClasses}
+          style={fullWidthStyle}
+          aria-invalid={!!error}
+          aria-describedby={errorId || ariaDescribedBy}
           {...props}
         />
       ) : type === 'select' ? (
@@ -43,10 +60,13 @@ const Input = ({
           onChange={onChange}
           required={required}
           disabled={disabled}
-          className={`${styles.input} ${error ? styles.error : ''} ${className}`}
+          className={inputClasses}
+          style={fullWidthStyle}
+          aria-invalid={!!error}
+          aria-describedby={errorId || ariaDescribedBy}
           {...props}
         >
-          {props.children}
+          {children}
         </select>
       ) : (
         <input
@@ -58,11 +78,14 @@ const Input = ({
           required={required}
           placeholder={placeholder}
           disabled={disabled}
-          className={`${styles.input} ${error ? styles.error : ''} ${className}`}
+          className={inputClasses}
+          style={fullWidthStyle}
+          aria-invalid={!!error}
+          aria-describedby={errorId || ariaDescribedBy}
           {...props}
         />
       )}
-      {error && <div className={styles.errorMessage}>{error}</div>}
+      {error && <div id={errorId} className={styles.errorMessage} role="alert">{error}</div>}
     </div>
   );
 };

@@ -169,8 +169,8 @@ const Users = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Удалить сотрудника?')) return;
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить сотрудника "${name}"?`)) return;
     try {
       await apiDelete(`/users/${id}`);
       setUsers(users.filter(u => u.id !== id));
@@ -259,8 +259,22 @@ const Users = () => {
       align: 'center',
       render: (user) => (
         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
-          <Button variant="warning" size="small" onClick={() => handleEdit(user)}>Ред.</Button>
-          <Button variant="danger" size="small" onClick={() => handleDelete(user.id)}>Удал.</Button>
+          <Button 
+            variant="warning" 
+            size="small" 
+            onClick={() => handleEdit(user)}
+            ariaLabel={`Редактировать сотрудника ${user.user_name}`}
+          >
+            Ред.
+          </Button>
+          <Button 
+            variant="danger" 
+            size="small" 
+            onClick={() => handleDelete(user.id, user.user_name)}
+            ariaLabel={`Удалить сотрудника ${user.user_name}`}
+          >
+            Удал.
+          </Button>
         </div>
       )
     }
@@ -274,13 +288,29 @@ const Users = () => {
       <div className="flex-between mb-3">
         <h2 style={{ fontSize: 'var(--font-size-2xl)' }}>Сотрудники</h2>
         <div className="flex gap-1">
-          <Button variant={viewMode === 'cards' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('cards')}>
+          <Button 
+            variant={viewMode === 'cards' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('cards')}
+            ariaLabel="Показать карточками"
+          >
             Карточки
           </Button>
-          <Button variant={viewMode === 'table' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('table')}>
+          <Button 
+            variant={viewMode === 'table' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('table')}
+            ariaLabel="Показать таблицей"
+          >
             Таблица
           </Button>
-          <Button variant="primary" onClick={handleAdd}>+ Добавить</Button>
+          <Button 
+            variant="primary" 
+            onClick={handleAdd}
+            ariaLabel="Добавить нового сотрудника"
+          >
+            + Добавить
+          </Button>
           <ExportButton 
             data={sortedUsers.map(user => ({
               id: user.id,
@@ -306,7 +336,12 @@ const Users = () => {
 
       {/* Кнопка показа/скрытия фильтров */}
       <div className="mb-3">
-        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+        <Button 
+          variant="info" 
+          size="small" 
+          onClick={() => setShowFilters(!showFilters)}
+          ariaLabel={showFilters ? 'Скрыть панель фильтров' : 'Показать панель фильтров'}
+        >
           {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
         </Button>
       </div>
@@ -321,7 +356,9 @@ const Users = () => {
               value={filters.searchText}
               onChange={handleFilterChange}
               placeholder="Имя, должность, email..."
+              ariaDescribedBy="search-help"
             />
+            <div id="search-help" className="visually-hidden">Введите текст для поиска по имени, должности или email</div>
             <Input
               label="Должность"
               name="post"
@@ -349,7 +386,14 @@ const Users = () => {
             />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
-            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+            <Button 
+              variant="neutral" 
+              size="small" 
+              onClick={resetFilters}
+              ariaLabel="Сбросить все фильтры"
+            >
+              Сбросить фильтры
+            </Button>
           </div>
         </Card>
       )}
@@ -358,7 +402,13 @@ const Users = () => {
         <div className="flex-between mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray)' }}>Сортировать:</span>
-            <select onChange={handleSortChange} value={`${sortConfig.key}-${sortConfig.direction}`} className="input" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}>
+            <select 
+              onChange={handleSortChange} 
+              value={`${sortConfig.key}-${sortConfig.direction}`} 
+              className="input" 
+              style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}
+              aria-label="Выберите поле для сортировки"
+            >
               <option value="name-asc">Имя (А-Я)</option>
               <option value="name-desc">Имя (Я-А)</option>
               <option value="post-asc">Должность (А-Я)</option>
@@ -373,7 +423,11 @@ const Users = () => {
       )}
 
       {sortedUsers.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет сотрудников, соответствующих фильтрам.</p></Card>
+        <Card>
+          <p style={{ textAlign: 'center', color: 'var(--gray)' }} role="status">
+            Нет сотрудников, соответствующих фильтрам.
+          </p>
+        </Card>
       ) : viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {sortedUsers.map(user => {
@@ -408,8 +462,22 @@ const Users = () => {
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
-                  <Button variant="warning" size="small" onClick={() => handleEdit(user)}>✎ Ред.</Button>
-                  <Button variant="danger" size="small" onClick={() => handleDelete(user.id)}>× Удал.</Button>
+                  <Button 
+                    variant="warning" 
+                    size="small" 
+                    onClick={() => handleEdit(user)}
+                    ariaLabel={`Редактировать сотрудника ${user.user_name}`}
+                  >
+                    ✎ Ред.
+                  </Button>
+                  <Button 
+                    variant="danger" 
+                    size="small" 
+                    onClick={() => handleDelete(user.id, user.user_name)}
+                    ariaLabel={`Удалить сотрудника ${user.user_name}`}
+                  >
+                    × Удал.
+                  </Button>
                 </div>
               </Card>
             );
@@ -431,15 +499,48 @@ const Users = () => {
         title={editingUser ? 'Редактировать сотрудника' : 'Новый сотрудник'}
         footer={
           <>
-            <Button variant="neutral" onClick={() => setShowModal(false)}>Отмена</Button>
-            <Button variant="success" type="submit" form="userForm">Сохранить</Button>
+            <Button 
+              variant="neutral" 
+              onClick={() => setShowModal(false)}
+              ariaLabel="Отменить"
+            >
+              Отмена
+            </Button>
+            <Button 
+              variant="success" 
+              type="submit" 
+              form="userForm"
+              ariaLabel="Сохранить сотрудника"
+            >
+              Сохранить
+            </Button>
           </>
         }
       >
         <form id="userForm" onSubmit={handleSave}>
-          <Input label="Имя" name="user_name" value={formData.user_name} onChange={handleInputChange} required />
-          <Input label="Должность" name="user_post" value={formData.user_post} onChange={handleInputChange} required />
-          <Input label="Email" type="email" name="email" value={formData.email} onChange={handleInputChange} />
+          <Input
+            label="Имя"
+            name="user_name"
+            value={formData.user_name}
+            onChange={handleInputChange}
+            required
+            ariaDescribedBy="name-help"
+          />
+          <div id="name-help" className="visually-hidden">Введите имя сотрудника</div>
+          <Input
+            label="Должность"
+            name="user_post"
+            value={formData.user_post}
+            onChange={handleInputChange}
+            required
+          />
+          <Input
+            label="Email"
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleInputChange}
+          />
         </form>
       </Modal>
     </div>

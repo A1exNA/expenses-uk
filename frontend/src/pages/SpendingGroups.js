@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
+import VirtualizedTable from '../components/ui/VirtualizedTable';
 import { showSuccess, showError, showInfo } from '../components/ui/Toast';
 import '../styles/utils.css';
 
@@ -135,8 +136,8 @@ const SpendingGroups = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Удалить группу расходов?')) return;
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить группу "${name}"?`)) return;
     try {
       await apiDelete(`/spending-groups/${id}`);
       await fetchData();
@@ -192,6 +193,37 @@ const SpendingGroups = () => {
     showInfo('Фильтры сброшены');
   };
 
+  // Колонки для виртуализированной таблицы
+  const tableColumns = [
+    { title: 'Дом', field: 'object', width: 300, render: (group) => getObjectAddress(group.object_id) },
+    { title: 'Название группы', field: 'text', width: 400 },
+    { 
+      title: 'Действия', 
+      width: 150,
+      align: 'center',
+      render: (group) => (
+        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
+          <Button 
+            variant="warning" 
+            size="small" 
+            onClick={() => handleEdit(group)}
+            ariaLabel={`Редактировать группу ${group.text}`}
+          >
+            Ред.
+          </Button>
+          <Button 
+            variant="danger" 
+            size="small" 
+            onClick={() => handleDelete(group.id, group.text)}
+            ariaLabel={`Удалить группу ${group.text}`}
+          >
+            Удал.
+          </Button>
+        </div>
+      )
+    }
+  ];
+
   if (loading && groups.length === 0) return <div>Загрузка...</div>;
   if (error) return <div>Ошибка: {error}</div>;
 
@@ -200,13 +232,29 @@ const SpendingGroups = () => {
       <div className="flex-between mb-3">
         <h2 style={{ fontSize: 'var(--font-size-2xl)' }}>Группы расходов</h2>
         <div className="flex gap-1">
-          <Button variant={viewMode === 'cards' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('cards')}>
+          <Button 
+            variant={viewMode === 'cards' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('cards')}
+            ariaLabel="Показать карточками"
+          >
             Карточки
           </Button>
-          <Button variant={viewMode === 'table' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('table')}>
+          <Button 
+            variant={viewMode === 'table' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('table')}
+            ariaLabel="Показать таблицей"
+          >
             Таблица
           </Button>
-          <Button variant="primary" onClick={handleAdd}>+ Добавить</Button>
+          <Button 
+            variant="primary" 
+            onClick={handleAdd}
+            ariaLabel="Добавить новую группу расходов"
+          >
+            + Добавить
+          </Button>
           <ExportButton 
             data={sortedGroups.map(group => ({
               id: group.id,
@@ -228,7 +276,12 @@ const SpendingGroups = () => {
 
       {/* Кнопка показа/скрытия фильтров */}
       <div className="mb-3">
-        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+        <Button 
+          variant="info" 
+          size="small" 
+          onClick={() => setShowFilters(!showFilters)}
+          ariaLabel={showFilters ? 'Скрыть панель фильтров' : 'Показать панель фильтров'}
+        >
           {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
         </Button>
       </div>
@@ -243,7 +296,9 @@ const SpendingGroups = () => {
               value={filters.searchText}
               onChange={handleFilterChange}
               placeholder="Название группы..."
+              ariaDescribedBy="search-help"
             />
+            <div id="search-help" className="visually-hidden">Введите текст для поиска по названию группы</div>
             <Input
               type="select"
               label="Дом"
@@ -258,7 +313,14 @@ const SpendingGroups = () => {
             </Input>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
-            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+            <Button 
+              variant="neutral" 
+              size="small" 
+              onClick={resetFilters}
+              ariaLabel="Сбросить все фильтры"
+            >
+              Сбросить фильтры
+            </Button>
           </div>
         </Card>
       )}
@@ -267,7 +329,13 @@ const SpendingGroups = () => {
         <div className="flex-between mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray)' }}>Сортировать:</span>
-            <select onChange={handleSortChange} value={`${sortConfig.key}-${sortConfig.direction}`} className="input" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}>
+            <select 
+              onChange={handleSortChange} 
+              value={`${sortConfig.key}-${sortConfig.direction}`} 
+              className="input" 
+              style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}
+              aria-label="Выберите поле для сортировки"
+            >
               <option value="text-asc">Название (А-Я)</option>
               <option value="text-desc">Название (Я-А)</option>
               <option value="object-asc">Дом (А-Я)</option>
@@ -278,7 +346,11 @@ const SpendingGroups = () => {
       )}
 
       {sortedGroups.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет групп, соответствующих фильтрам.</p></Card>
+        <Card>
+          <p style={{ textAlign: 'center', color: 'var(--gray)' }} role="status">
+            Нет групп, соответствующих фильтрам.
+          </p>
+        </Card>
       ) : viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {sortedGroups.map(group => (
@@ -292,39 +364,33 @@ const SpendingGroups = () => {
                 <div style={{ fontSize: 'var(--font-size-md)', fontWeight: 500 }}>{getObjectAddress(group.object_id)}</div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
-                <Button variant="warning" size="small" onClick={() => handleEdit(group)}>✎ Ред.</Button>
-                <Button variant="danger" size="small" onClick={() => handleDelete(group.id)}>× Удал.</Button>
+                <Button 
+                  variant="warning" 
+                  size="small" 
+                  onClick={() => handleEdit(group)}
+                  ariaLabel={`Редактировать группу ${group.text}`}
+                >
+                  ✎ Ред.
+                </Button>
+                <Button 
+                  variant="danger" 
+                  size="small" 
+                  onClick={() => handleDelete(group.id, group.text)}
+                  ariaLabel={`Удалить группу ${group.text}`}
+                >
+                  × Удал.
+                </Button>
               </div>
             </Card>
           ))}
         </div>
       ) : (
         <Card>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid var(--light)' }}>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('object')}>
-                  Дом {sortConfig.key === 'object' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)', cursor: 'pointer' }} onClick={() => requestSort('text')}>
-                  Название {sortConfig.key === 'text' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-                <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedGroups.map(group => (
-                <tr key={group.id} style={{ borderBottom: '1px solid var(--light)' }}>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{getObjectAddress(group.object_id)}</td>
-                  <td style={{ padding: 'var(--spacing-sm)' }}>{group.text}</td>
-                  <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
-                    <Button variant="warning" size="small" onClick={() => handleEdit(group)}>Ред.</Button>
-                    <Button variant="danger" size="small" onClick={() => handleDelete(group.id)}>Удал.</Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <VirtualizedTable
+            columns={tableColumns}
+            data={sortedGroups}
+            rowHeight={50}
+          />
         </Card>
       )}
 
@@ -334,8 +400,21 @@ const SpendingGroups = () => {
         title={editingGroup ? 'Редактировать группу' : 'Новая группа'}
         footer={
           <>
-            <Button variant="neutral" onClick={() => setShowModal(false)}>Отмена</Button>
-            <Button variant="success" type="submit" form="groupForm">Сохранить</Button>
+            <Button 
+              variant="neutral" 
+              onClick={() => setShowModal(false)}
+              ariaLabel="Отменить"
+            >
+              Отмена
+            </Button>
+            <Button 
+              variant="success" 
+              type="submit" 
+              form="groupForm"
+              ariaLabel="Сохранить группу"
+            >
+              Сохранить
+            </Button>
           </>
         }
       >
@@ -358,7 +437,9 @@ const SpendingGroups = () => {
             value={formData.text}
             onChange={handleInputChange}
             required
+            ariaDescribedBy="text-help"
           />
+          <div id="text-help" className="visually-hidden">Введите название группы расходов</div>
         </form>
       </Modal>
     </div>

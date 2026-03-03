@@ -10,7 +10,6 @@ const ExportButton = ({ data, filename = 'export', headers, title, children }) =
     }
 
     try {
-      // Создаём новую рабочую книгу
       const workbook = new ExcelJS.Workbook();
       workbook.creator = 'Учёт расходов УК';
       workbook.lastModifiedBy = 'Учёт расходов УК';
@@ -19,7 +18,6 @@ const ExportButton = ({ data, filename = 'export', headers, title, children }) =
 
       const worksheet = workbook.addWorksheet('Отчёт');
 
-      // Добавляем заголовок таблицы, если он передан
       let startRow = 1;
       if (title) {
         const titleRow = worksheet.addRow([title]);
@@ -37,7 +35,6 @@ const ExportButton = ({ data, filename = 'export', headers, title, children }) =
         startRow = 2;
       }
 
-      // Добавляем заголовки столбцов
       const headerRow = worksheet.addRow(headers.map(h => h.label));
       headerRow.eachCell((cell) => {
         cell.font = { 
@@ -53,7 +50,6 @@ const ExportButton = ({ data, filename = 'export', headers, title, children }) =
         };
       });
 
-      // Добавляем данные с правильным форматированием
       data.forEach(row => {
         const rowData = headers.map(h => {
           const value = row[h.key];
@@ -69,10 +65,6 @@ const ExportButton = ({ data, filename = 'export', headers, title, children }) =
           
           if (h.type === 'float') {
             return parseFloat(value);
-          }
-          
-          if (h.type === 'number') {
-            return Number(value);
           }
           
           return value !== undefined ? value : '';
@@ -92,7 +84,7 @@ const ExportButton = ({ data, filename = 'export', headers, title, children }) =
             cell.numFmt = '0';
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
           } 
-          else if (header.type === 'float' || header.type === 'number') {
+          else if (header.type === 'float') {
             cell.numFmt = '# ##0.00';
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
           }
@@ -110,7 +102,6 @@ const ExportButton = ({ data, filename = 'export', headers, title, children }) =
         });
       });
 
-      // Автоматическая ширина столбцов
       worksheet.columns.forEach((column, i) => {
         const allValues = [
           headers[i].label,
@@ -124,7 +115,6 @@ const ExportButton = ({ data, filename = 'export', headers, title, children }) =
         column.width = Math.min(maxLen + 5, 60);
       });
 
-      // Генерируем буфер и сохраняем файл
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const link = document.createElement('a');
@@ -142,7 +132,12 @@ const ExportButton = ({ data, filename = 'export', headers, title, children }) =
   };
 
   return (
-    <Button variant="info" size="small" onClick={handleExport}>
+    <Button 
+      variant="info" 
+      size="small" 
+      onClick={handleExport}
+      ariaLabel="Экспортировать данные в Excel"
+    >
       {children || 'Экспорт в Excel'}
     </Button>
   );

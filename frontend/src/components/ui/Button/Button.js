@@ -9,6 +9,8 @@ const Button = ({
   disabled = false,
   type = 'button',
   className = '',
+  ariaLabel,
+  title,
   ...props 
 }) => {
   return (
@@ -17,6 +19,8 @@ const Button = ({
       className={`${styles.button} ${styles[variant]} ${styles[size]} ${className}`}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
+      title={title}
       {...props}
     >
       {children}

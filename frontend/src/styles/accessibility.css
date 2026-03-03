@@ -1,0 +1,41 @@
+/* Класс для элементов, которые видимы только для скринридеров */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Фокус для клавиатурной навигации */
+:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Скрываем outline для мыши, но оставляем для клавиатуры */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Улучшенная контрастность */
+@media (prefers-contrast: high) {
+  :root {
+    --primary: #0000ff;
+    --success: #008000;
+    --danger: #ff0000;
+    --warning: #ffa500;
+    --text-primary: #000000;
+    --bg-body: #ffffff;
+  }
+}

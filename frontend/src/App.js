@@ -13,6 +13,7 @@ import Checks from './pages/Checks';
 import Deposits from './pages/Deposits';
 import CurrentRepairReport from './pages/CurrentRepairReport';
 import './styles/global.css';
+import './styles/accessibility.css';
 
 function App() {
   return (
