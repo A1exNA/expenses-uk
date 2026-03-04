@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Input, Card } from '../components/ui';
-import { apiGet } from '../services/api';
-import '../styles/utils.css';
+import { Button, Input, Card } from '../../components/ui';
+import { apiGet } from '../../services/api';
+import '../../styles/utils.css';
 
 const CurrentRepairReport = () => {
   const [objects, setObjects] = useState([]);
