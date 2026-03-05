@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
+import SearchableSelect from '../components/ui/SearchableSelect';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
 import VirtualizedTable from '../components/ui/VirtualizedTable';
@@ -296,21 +297,23 @@ const SpendingGroups = () => {
               value={filters.searchText}
               onChange={handleFilterChange}
               placeholder="Название группы..."
-              ariaDescribedBy="search-help"
             />
-            <div id="search-help" className="visually-hidden">Введите текст для поиска по названию группы</div>
-            <Input
-              type="select"
-              label="Дом"
-              name="objectId"
-              value={filters.objectId}
-              onChange={handleFilterChange}
-            >
-              <option value="">Все дома</option>
-              {objects.map(obj => (
-                <option key={obj.id} value={obj.id}>{obj.object_address}</option>
-              ))}
-            </Input>
+            <div>
+              <SearchableSelect
+                label="Дом"
+                name="objectId"
+                value={filters.objectId}
+                onChange={handleFilterChange}
+                options={[
+                  { value: '', label: 'Все дома' },
+                  ...objects.map(obj => ({
+                    value: obj.id,
+                    label: obj.object_address
+                  }))
+                ]}
+                placeholder="Поиск дома..."
+              />
+            </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
             <Button 
@@ -394,54 +397,57 @@ const SpendingGroups = () => {
         </Card>
       )}
 
-      <Modal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        title={editingGroup ? 'Редактировать группу' : 'Новая группа'}
-        footer={
-          <>
-            <Button 
-              variant="neutral" 
-              onClick={() => setShowModal(false)}
-              ariaLabel="Отменить"
-            >
-              Отмена
-            </Button>
-            <Button 
-              variant="success" 
-              type="submit" 
-              form="groupForm"
-              ariaLabel="Сохранить группу"
-            >
-              Сохранить
-            </Button>
-          </>
-        }
-      >
-        <form id="groupForm" onSubmit={handleSave}>
-          <Input
-            type="select"
-            label="Дом (необязательно)"
-            name="object_id"
-            value={formData.object_id}
-            onChange={handleInputChange}
-          >
-            <option value="">Без дома</option>
-            {objects.map(obj => (
-              <option key={obj.id} value={obj.id}>{obj.object_address}</option>
-            ))}
-          </Input>
-          <Input
-            label="Название группы"
-            name="text"
-            value={formData.text}
-            onChange={handleInputChange}
-            required
-            ariaDescribedBy="text-help"
-          />
-          <div id="text-help" className="visually-hidden">Введите название группы расходов</div>
-        </form>
-      </Modal>
+      {/* Модальное окно */}
+      {showModal && (
+        <Modal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          title={editingGroup ? 'Редактировать группу' : 'Новая группа'}
+          footer={
+            <>
+              <Button 
+                variant="neutral" 
+                onClick={() => setShowModal(false)}
+                ariaLabel="Отменить"
+              >
+                Отмена
+              </Button>
+              <Button 
+                variant="success" 
+                type="submit" 
+                form="groupForm"
+                ariaLabel="Сохранить группу"
+              >
+                Сохранить
+              </Button>
+            </>
+          }
+        >
+          <form id="groupForm" onSubmit={handleSave}>
+            <SearchableSelect
+              label="Дом (необязательно)"
+              name="object_id"
+              value={formData.object_id}
+              onChange={handleInputChange}
+              options={[
+                { value: '', label: 'Без дома' },
+                ...objects.map(obj => ({
+                  value: obj.id,
+                  label: obj.object_address
+                }))
+              ]}
+              placeholder="Поиск дома..."
+            />
+            <Input
+              label="Название группы"
+              name="text"
+              value={formData.text}
+              onChange={handleInputChange}
+              required
+            />
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };

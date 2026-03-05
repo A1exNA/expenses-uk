@@ -346,7 +346,6 @@ const Objects = () => {
               value={filters.searchText}
               onChange={handleFilterChange}
               placeholder="Часть адреса..."
-              ariaDescribedBy="search-help"
             />
             <Input
               label="Площадь от"

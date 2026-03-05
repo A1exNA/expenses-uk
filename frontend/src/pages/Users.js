@@ -356,9 +356,7 @@ const Users = () => {
               value={filters.searchText}
               onChange={handleFilterChange}
               placeholder="Имя, должность, email..."
-              ariaDescribedBy="search-help"
             />
-            <div id="search-help" className="visually-hidden">Введите текст для поиска по имени, должности или email</div>
             <Input
               label="Должность"
               name="post"

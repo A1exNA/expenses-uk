@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
+import SearchableSelect from '../components/ui/SearchableSelect';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
 import VirtualizedTable from '../components/ui/VirtualizedTable';
@@ -189,8 +190,8 @@ const Bills = () => {
     setShowBillModal(true);
   };
 
-  const handleDeleteBill = async (id) => {
-    if (!window.confirm('Удалить счёт? Все позиции также будут удалены.')) return;
+  const handleDeleteBill = async (id, description) => {
+    if (!window.confirm(`Удалить счёт "${description}"? Все позиции также будут удалены.`)) return;
     try {
       await apiDelete(`/bills/${id}`);
       await fetchData();
@@ -249,8 +250,8 @@ const Bills = () => {
     });
   };
 
-  const handleDeleteItem = async (itemId) => {
-    if (!window.confirm('Удалить позицию?')) return;
+  const handleDeleteItem = async (itemId, itemText) => {
+    if (!window.confirm(`Удалить позицию "${itemText}"?`)) return;
     try {
       await apiDelete(`/bills/${currentBillId}/items/${itemId}`);
       await fetchItemsForBill(currentBillId);
@@ -324,19 +325,40 @@ const Bills = () => {
 
   // Колонки для виртуализированной таблицы
   const tableColumns = [
-    { title: 'Группа', field: 'group', width: 250, render: (bill) => getGroupDisplay(bill.spending_group_id) },
+    { title: 'Группа', field: 'group', width: 300, render: (bill) => getGroupDisplay(bill.spending_group_id) },
     { title: 'Описание', field: 'text', width: 300 },
-    { title: 'Дата', field: 'date', width: 100, render: (bill) => formatDate(bill.date) },
-    { title: 'Сумма', align: 'right', width: 120, render: (bill) => formatCurrency(parseFloat(getBillTotal(bill.id))) },
+    { title: 'Дата', field: 'date', width: 120, render: (bill) => formatDate(bill.date) },
+    { title: 'Сумма', align: 'right', width: 150, render: (bill) => formatCurrency(parseFloat(getBillTotal(bill.id))) },
     { 
       title: 'Действия', 
       width: 200,
       align: 'center',
       render: (bill) => (
         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
-          <Button variant="info" size="small" onClick={() => handleManageItems(bill.id)}>Поз.</Button>
-          <Button variant="warning" size="small" onClick={() => handleEditBill(bill)}>Ред.</Button>
-          <Button variant="danger" size="small" onClick={() => handleDeleteBill(bill.id)}>Удал.</Button>
+          <Button 
+            variant="info" 
+            size="small" 
+            onClick={() => handleManageItems(bill.id)}
+            ariaLabel={`Управление позициями счёта ${bill.text}`}
+          >
+            Поз.
+          </Button>
+          <Button 
+            variant="warning" 
+            size="small" 
+            onClick={() => handleEditBill(bill)}
+            ariaLabel={`Редактировать счёт ${bill.text}`}
+          >
+            Ред.
+          </Button>
+          <Button 
+            variant="danger" 
+            size="small" 
+            onClick={() => handleDeleteBill(bill.id, bill.text)}
+            ariaLabel={`Удалить счёт ${bill.text}`}
+          >
+            Удал.
+          </Button>
         </div>
       )
     }
@@ -350,13 +372,29 @@ const Bills = () => {
       <div className="flex-between mb-3">
         <h2 style={{ fontSize: 'var(--font-size-2xl)' }}>Счета (безналичные расходы)</h2>
         <div className="flex gap-1">
-          <Button variant={viewMode === 'cards' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('cards')}>
+          <Button 
+            variant={viewMode === 'cards' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('cards')}
+            ariaLabel="Показать карточками"
+          >
             Карточки
           </Button>
-          <Button variant={viewMode === 'table' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('table')}>
+          <Button 
+            variant={viewMode === 'table' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('table')}
+            ariaLabel="Показать таблицей"
+          >
             Таблица
           </Button>
-          <Button variant="primary" onClick={handleAddBill}>+ Выставить счёт</Button>
+          <Button 
+            variant="primary" 
+            onClick={handleAddBill}
+            ariaLabel="Выставить новый счёт"
+          >
+            + Выставить счёт
+          </Button>
           <ExportButton 
             data={sortedBills.map(bill => ({
               id: bill.id,
@@ -382,7 +420,12 @@ const Bills = () => {
 
       {/* Кнопка показа/скрытия фильтров */}
       <div className="mb-3">
-        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+        <Button 
+          variant="info" 
+          size="small" 
+          onClick={() => setShowFilters(!showFilters)}
+          ariaLabel={showFilters ? 'Скрыть панель фильтров' : 'Показать панель фильтров'}
+        >
           {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
         </Button>
       </div>
@@ -398,18 +441,20 @@ const Bills = () => {
               onChange={handleFilterChange}
               placeholder="Описание, группа..."
             />
-            <Input
-              type="select"
+            <SearchableSelect
               label="Группа"
               name="groupId"
               value={filters.groupId}
               onChange={handleFilterChange}
-            >
-              <option value="">Все группы</option>
-              {spendingGroups.map(group => (
-                <option key={group.id} value={group.id}>{getGroupDisplay(group.id)}</option>
-              ))}
-            </Input>
+              options={[
+                { value: '', label: 'Все группы' },
+                ...spendingGroups.map(group => ({
+                  value: group.id,
+                  label: getGroupDisplay(group.id)
+                }))
+              ]}
+              placeholder="Поиск группы..."
+            />
             <Input
               label="Дата с"
               type="date"
@@ -426,7 +471,14 @@ const Bills = () => {
             />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
-            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+            <Button 
+              variant="neutral" 
+              size="small" 
+              onClick={resetFilters}
+              ariaLabel="Сбросить все фильтры"
+            >
+              Сбросить фильтры
+            </Button>
           </div>
         </Card>
       )}
@@ -435,7 +487,13 @@ const Bills = () => {
         <div className="flex-between mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray)' }}>Сортировать:</span>
-            <select onChange={handleSortChange} value={`${sortConfig.key}-${sortConfig.direction}`} className="input" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}>
+            <select 
+              onChange={handleSortChange} 
+              value={`${sortConfig.key}-${sortConfig.direction}`} 
+              className="input" 
+              style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}
+              aria-label="Выберите поле для сортировки"
+            >
               <option value="date-desc">Дата (сначала новые)</option>
               <option value="date-asc">Дата (сначала старые)</option>
               <option value="group-asc">Группа (А-Я)</option>
@@ -448,7 +506,11 @@ const Bills = () => {
       )}
 
       {sortedBills.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет счетов, соответствующих фильтрам.</p></Card>
+        <Card>
+          <p style={{ textAlign: 'center', color: 'var(--gray)' }} role="status">
+            Нет счетов, соответствующих фильтрам.
+          </p>
+        </Card>
       ) : viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {sortedBills.map(bill => (
@@ -474,9 +536,30 @@ const Bills = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
-                <Button variant="info" size="small" onClick={() => handleManageItems(bill.id)}>📋 Позиции</Button>
-                <Button variant="warning" size="small" onClick={() => handleEditBill(bill)}>✎ Ред.</Button>
-                <Button variant="danger" size="small" onClick={() => handleDeleteBill(bill.id)}>× Удал.</Button>
+                <Button 
+                  variant="info" 
+                  size="small" 
+                  onClick={() => handleManageItems(bill.id)}
+                  ariaLabel={`Управление позициями счёта ${bill.text}`}
+                >
+                  📋 Поз.
+                </Button>
+                <Button 
+                  variant="warning" 
+                  size="small" 
+                  onClick={() => handleEditBill(bill)}
+                  ariaLabel={`Редактировать счёт ${bill.text}`}
+                >
+                  ✎ Ред.
+                </Button>
+                <Button 
+                  variant="danger" 
+                  size="small" 
+                  onClick={() => handleDeleteBill(bill.id, bill.text)}
+                  ariaLabel={`Удалить счёт ${bill.text}`}
+                >
+                  × Удал.
+                </Button>
               </div>
             </Card>
           ))}
@@ -492,147 +575,182 @@ const Bills = () => {
       )}
 
       {/* Модальное окно для счёта */}
-      <Modal
-        isOpen={showBillModal}
-        onClose={() => setShowBillModal(false)}
-        title={editingBill ? 'Редактировать счёт' : 'Новый счёт'}
-        footer={
-          <>
-            <Button variant="neutral" onClick={() => setShowBillModal(false)}>Отмена</Button>
-            <Button variant="success" type="submit" form="billForm">Сохранить</Button>
-          </>
-        }
-      >
-        <form id="billForm" onSubmit={handleSaveBill}>
-          <Input
-            type="select"
-            label="Группа расходов"
-            name="spending_group_id"
-            value={billForm.spending_group_id}
-            onChange={handleBillInputChange}
-            required
-          >
-            <option value="">Выберите группу</option>
-            {spendingGroups.map(group => (
-              <option key={group.id} value={group.id}>{getGroupDisplay(group.id)}</option>
-            ))}
-          </Input>
-          <Input
-            label="Описание"
-            name="text"
-            value={billForm.text}
-            onChange={handleBillInputChange}
-            required
-          />
-          <Input
-            label="Дата"
-            type="date"
-            name="date"
-            value={billForm.date}
-            onChange={handleBillInputChange}
-            required
-          />
-        </form>
-      </Modal>
+      {showBillModal && (
+        <Modal
+          isOpen={showBillModal}
+          onClose={() => setShowBillModal(false)}
+          title={editingBill ? 'Редактировать счёт' : 'Новый счёт'}
+          footer={
+            <>
+              <Button 
+                variant="neutral" 
+                onClick={() => setShowBillModal(false)}
+                ariaLabel="Отменить"
+              >
+                Отмена
+              </Button>
+              <Button 
+                variant="success" 
+                type="submit" 
+                form="billForm"
+                ariaLabel="Сохранить счёт"
+              >
+                Сохранить
+              </Button>
+            </>
+          }
+        >
+          <form id="billForm" onSubmit={handleSaveBill}>
+            <SearchableSelect
+              label="Группа расходов"
+              name="spending_group_id"
+              value={billForm.spending_group_id}
+              onChange={handleBillInputChange}
+              required
+              options={spendingGroups.map(group => ({
+                value: group.id,
+                label: getGroupDisplay(group.id)
+              }))}
+              placeholder="Поиск группы..."
+            />
+            <Input
+              label="Описание"
+              name="text"
+              value={billForm.text}
+              onChange={handleBillInputChange}
+              required
+            />
+            <Input
+              label="Дата"
+              type="date"
+              name="date"
+              value={billForm.date}
+              onChange={handleBillInputChange}
+              required
+            />
+          </form>
+        </Modal>
+      )}
 
       {/* Модальное окно для позиций */}
-      <Modal
-        isOpen={showItemsModal}
-        onClose={() => setShowItemsModal(false)}
-        title={`Позиции счёта #${currentBillId}`}
-        footer={null}
-        width="650px"
-      >
-        <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-          <h4 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--primary)' }}>
-            {editingItem ? 'Редактирование позиции' : 'Добавление позиции'}
-          </h4>
-          <form onSubmit={handleSaveItem}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-              <Input
-                label="Наименование товара/услуги"
-                name="text"
-                value={itemForm.text}
-                onChange={handleItemInputChange}
-                required
-                fullWidth
-              />
-              <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+      {showItemsModal && (
+        <Modal
+          isOpen={showItemsModal}
+          onClose={() => setShowItemsModal(false)}
+          title={`Позиции счёта #${currentBillId}`}
+          footer={null}
+          width="650px"
+        >
+          <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+            <h4 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--primary)' }}>
+              {editingItem ? 'Редактирование позиции' : 'Добавление позиции'}
+            </h4>
+            <form onSubmit={handleSaveItem}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                 <Input
-                  label="Цена"
-                  type="number"
-                  step="0.01"
-                  name="price"
-                  value={itemForm.price}
+                  label="Наименование товара/услуги"
+                  name="text"
+                  value={itemForm.text}
                   onChange={handleItemInputChange}
                   required
                   fullWidth
                 />
-                <Input
-                  label="Количество"
-                  type="number"
-                  step="0.01"
-                  name="quantity"
-                  value={itemForm.quantity}
-                  onChange={handleItemInputChange}
-                  required
-                  fullWidth
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
-                {editingItem && (
-                  <Button type="button" variant="neutral" onClick={() => { setEditingItem(null); setItemForm({ text: '', price: '', quantity: '' }); }}>
-                    Отмена
+                <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+                  <Input
+                    label="Цена"
+                    type="number"
+                    step="0.01"
+                    name="price"
+                    value={itemForm.price}
+                    onChange={handleItemInputChange}
+                    required
+                    fullWidth
+                  />
+                  <Input
+                    label="Количество"
+                    type="number"
+                    step="0.01"
+                    name="quantity"
+                    value={itemForm.quantity}
+                    onChange={handleItemInputChange}
+                    required
+                    fullWidth
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
+                  {editingItem && (
+                    <Button 
+                      type="button" 
+                      variant="neutral" 
+                      onClick={() => { setEditingItem(null); setItemForm({ text: '', price: '', quantity: '' }); }}
+                      ariaLabel="Отменить редактирование"
+                    >
+                      Отмена
+                    </Button>
+                  )}
+                  <Button type="submit" variant="success">
+                    {editingItem ? 'Обновить позицию' : 'Добавить позицию'}
                   </Button>
-                )}
-                <Button type="submit" variant="success">
-                  {editingItem ? 'Обновить позицию' : 'Добавить позицию'}
-                </Button>
+                </div>
               </div>
-            </div>
-          </form>
-        </div>
+            </form>
+          </div>
 
-        <div>
-          <h4 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--primary)' }}>Список позиций</h4>
-          {items.length === 0 ? (
-            <p style={{ color: 'var(--gray)', textAlign: 'center' }}>Позиции отсутствуют</p>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--light)' }}>
-                  <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)' }}>Наименование</th>
-                  <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Цена</th>
-                  <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Кол-во</th>
-                  <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Сумма</th>
-                  <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map(item => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid var(--light)' }}>
-                    <td style={{ padding: 'var(--spacing-sm)' }}>{item.text}</td>
-                    <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{Number(item.price).toFixed(2)}</td>
-                    <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{item.quantity}</td>
-                    <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{(Number(item.price) * Number(item.quantity)).toFixed(2)}</td>
-                    <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
-                      <Button variant="warning" size="small" onClick={() => handleEditItem(item)}>Ред.</Button>
-                      <Button variant="danger" size="small" onClick={() => handleDeleteItem(item.id)}>Удал.</Button>
-                    </td>
+          <div>
+            <h4 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--primary)' }}>Список позиций</h4>
+            {items.length === 0 ? (
+              <p style={{ color: 'var(--gray)', textAlign: 'center' }} role="status">Позиции отсутствуют</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--light)' }}>
+                    <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)' }}>Наименование</th>
+                    <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Цена</th>
+                    <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Кол-во</th>
+                    <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Сумма</th>
+                    <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
                   </tr>
-                ))}
-                <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--light)' }}>
-                  <td colSpan="3" style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>ИТОГО:</td>
-                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>
-                    {items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0).toFixed(2)}
-                  </td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
-          )}
-        </div>
-      </Modal>
+                </thead>
+                <tbody>
+                  {items.map(item => (
+                    <tr key={item.id} style={{ borderBottom: '1px solid var(--light)' }}>
+                      <td style={{ padding: 'var(--spacing-sm)' }}>{item.text}</td>
+                      <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{Number(item.price).toFixed(2)}</td>
+                      <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{item.quantity}</td>
+                      <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{(Number(item.price) * Number(item.quantity)).toFixed(2)}</td>
+                      <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
+                        <Button 
+                          variant="warning" 
+                          size="small" 
+                          onClick={() => handleEditItem(item)}
+                          ariaLabel={`Редактировать позицию ${item.text}`}
+                        >
+                          Ред.
+                        </Button>
+                        <Button 
+                          variant="danger" 
+                          size="small" 
+                          onClick={() => handleDeleteItem(item.id, item.text)}
+                          ariaLabel={`Удалить позицию ${item.text}`}
+                        >
+                          Удал.
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--light)' }}>
+                    <td colSpan="3" style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>ИТОГО:</td>
+                    <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>
+                      {items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0).toFixed(2)}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

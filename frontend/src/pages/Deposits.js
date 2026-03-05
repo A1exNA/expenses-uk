@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
+import SearchableSelect from '../components/ui/SearchableSelect';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
 import VirtualizedTable from '../components/ui/VirtualizedTable';
@@ -138,8 +139,8 @@ const Deposits = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Удалить запись о пополнении?')) return;
+  const handleDelete = async (id, userName) => {
+    if (!window.confirm(`Удалить запись о пополнении для "${userName}"?`)) return;
     try {
       await apiDelete(`/deposits/${id}`);
       setDeposits(deposits.filter(d => d.id !== id));
@@ -216,8 +217,22 @@ const Deposits = () => {
       align: 'center',
       render: (dep) => (
         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
-          <Button variant="warning" size="small" onClick={() => handleEdit(dep)}>Ред.</Button>
-          <Button variant="danger" size="small" onClick={() => handleDelete(dep.id)}>Удал.</Button>
+          <Button 
+            variant="warning" 
+            size="small" 
+            onClick={() => handleEdit(dep)}
+            ariaLabel={`Редактировать пополнение для ${getUserName(dep.user_id)}`}
+          >
+            Ред.
+          </Button>
+          <Button 
+            variant="danger" 
+            size="small" 
+            onClick={() => handleDelete(dep.id, getUserName(dep.user_id))}
+            ariaLabel={`Удалить пополнение для ${getUserName(dep.user_id)}`}
+          >
+            Удал.
+          </Button>
         </div>
       )
     }
@@ -231,13 +246,29 @@ const Deposits = () => {
       <div className="flex-between mb-3">
         <h2 style={{ fontSize: 'var(--font-size-2xl)' }}>Пополнения (выдача подотчётных)</h2>
         <div className="flex gap-1">
-          <Button variant={viewMode === 'cards' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('cards')}>
+          <Button 
+            variant={viewMode === 'cards' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('cards')}
+            ariaLabel="Показать карточками"
+          >
             Карточки
           </Button>
-          <Button variant={viewMode === 'table' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('table')}>
+          <Button 
+            variant={viewMode === 'table' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('table')}
+            ariaLabel="Показать таблицей"
+          >
             Таблица
           </Button>
-          <Button variant="primary" onClick={handleAdd}>+ Добавить</Button>
+          <Button 
+            variant="primary" 
+            onClick={handleAdd}
+            ariaLabel="Добавить новое пополнение"
+          >
+            + Добавить
+          </Button>
           <ExportButton 
             data={sortedDeposits.map(dep => ({
               id: dep.id,
@@ -261,7 +292,12 @@ const Deposits = () => {
 
       {/* Кнопка показа/скрытия фильтров */}
       <div className="mb-3">
-        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+        <Button 
+          variant="info" 
+          size="small" 
+          onClick={() => setShowFilters(!showFilters)}
+          ariaLabel={showFilters ? 'Скрыть панель фильтров' : 'Показать панель фильтров'}
+        >
           {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
         </Button>
       </div>
@@ -270,18 +306,20 @@ const Deposits = () => {
       {showFilters && (
         <Card className="mb-3">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
-            <Input
-              type="select"
+            <SearchableSelect
               label="Сотрудник"
               name="userId"
               value={filters.userId}
               onChange={handleFilterChange}
-            >
-              <option value="">Все сотрудники</option>
-              {users.map(user => (
-                <option key={user.id} value={user.id}>{user.user_name}</option>
-              ))}
-            </Input>
+              options={[
+                { value: '', label: 'Все сотрудники' },
+                ...users.map(user => ({
+                  value: user.id,
+                  label: user.user_name
+                }))
+              ]}
+              placeholder="Поиск сотрудника..."
+            />
             <Input
               label="Сумма от"
               type="number"
@@ -316,7 +354,14 @@ const Deposits = () => {
             />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
-            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+            <Button 
+              variant="neutral" 
+              size="small" 
+              onClick={resetFilters}
+              ariaLabel="Сбросить все фильтры"
+            >
+              Сбросить фильтры
+            </Button>
           </div>
         </Card>
       )}
@@ -325,7 +370,13 @@ const Deposits = () => {
         <div className="flex-between mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray)' }}>Сортировать:</span>
-            <select onChange={handleSortChange} value={`${sortConfig.key}-${sortConfig.direction}`} className="input" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}>
+            <select 
+              onChange={handleSortChange} 
+              value={`${sortConfig.key}-${sortConfig.direction}`} 
+              className="input" 
+              style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}
+              aria-label="Выберите поле для сортировки"
+            >
               <option value="date-desc">Дата (сначала новые)</option>
               <option value="date-asc">Дата (сначала старые)</option>
               <option value="user-asc">Сотрудник (А-Я)</option>
@@ -338,7 +389,11 @@ const Deposits = () => {
       )}
 
       {sortedDeposits.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет пополнений, соответствующих фильтрам.</p></Card>
+        <Card>
+          <p style={{ textAlign: 'center', color: 'var(--gray)' }} role="status">
+            Нет пополнений, соответствующих фильтрам.
+          </p>
+        </Card>
       ) : viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {sortedDeposits.map(dep => (
@@ -360,8 +415,22 @@ const Deposits = () => {
                 <div>{formatDate(dep.date)}</div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
-                <Button variant="warning" size="small" onClick={() => handleEdit(dep)}>✎ Ред.</Button>
-                <Button variant="danger" size="small" onClick={() => handleDelete(dep.id)}>× Удал.</Button>
+                <Button 
+                  variant="warning" 
+                  size="small" 
+                  onClick={() => handleEdit(dep)}
+                  ariaLabel={`Редактировать пополнение для ${getUserName(dep.user_id)}`}
+                >
+                  ✎ Ред.
+                </Button>
+                <Button 
+                  variant="danger" 
+                  size="small" 
+                  onClick={() => handleDelete(dep.id, getUserName(dep.user_id))}
+                  ariaLabel={`Удалить пополнение для ${getUserName(dep.user_id)}`}
+                >
+                  × Удал.
+                </Button>
               </div>
             </Card>
           ))}
@@ -376,50 +445,65 @@ const Deposits = () => {
         </Card>
       )}
 
-      <Modal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        title={editingDeposit ? 'Редактировать пополнение' : 'Новое пополнение'}
-        footer={
-          <>
-            <Button variant="neutral" onClick={() => setShowModal(false)}>Отмена</Button>
-            <Button variant="success" type="submit" form="depositForm">Сохранить</Button>
-          </>
-        }
-      >
-        <form id="depositForm" onSubmit={handleSave}>
-          <Input
-            type="select"
-            label="Сотрудник"
-            name="user_id"
-            value={formData.user_id}
-            onChange={handleInputChange}
-            required
-          >
-            <option value="">Выберите сотрудника</option>
-            {users.map(user => (
-              <option key={user.id} value={user.id}>{user.user_name} ({user.user_post})</option>
-            ))}
-          </Input>
-          <Input
-            label="Сумма"
-            type="number"
-            step="0.01"
-            name="amount"
-            value={formData.amount}
-            onChange={handleInputChange}
-            required
-          />
-          <Input
-            label="Дата"
-            type="date"
-            name="date"
-            value={formData.date}
-            onChange={handleInputChange}
-            required
-          />
-        </form>
-      </Modal>
+      {/* Модальное окно */}
+      {showModal && (
+        <Modal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          title={editingDeposit ? 'Редактировать пополнение' : 'Новое пополнение'}
+          footer={
+            <>
+              <Button 
+                variant="neutral" 
+                onClick={() => setShowModal(false)}
+                ariaLabel="Отменить"
+              >
+                Отмена
+              </Button>
+              <Button 
+                variant="success" 
+                type="submit" 
+                form="depositForm"
+                ariaLabel="Сохранить пополнение"
+              >
+                Сохранить
+              </Button>
+            </>
+          }
+        >
+          <form id="depositForm" onSubmit={handleSave}>
+            <SearchableSelect
+              label="Сотрудник"
+              name="user_id"
+              value={formData.user_id}
+              onChange={handleInputChange}
+              required
+              options={users.map(user => ({
+                value: user.id,
+                label: `${user.user_name} (${user.user_post})`
+              }))}
+              placeholder="Поиск сотрудника..."
+            />
+            <Input
+              label="Сумма"
+              type="number"
+              step="0.01"
+              name="amount"
+              value={formData.amount}
+              onChange={handleInputChange}
+              required
+            />
+            <Input
+              label="Дата"
+              type="date"
+              name="date"
+              value={formData.date}
+              onChange={handleInputChange}
+              required
+            />
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };

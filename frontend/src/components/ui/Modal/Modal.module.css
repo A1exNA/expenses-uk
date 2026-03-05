@@ -21,19 +21,22 @@
 
 .modal {
   background-color: var(--card-bg, #ffffff);
-  border-radius: 20px;
+  border-radius: var(--border-radius-lg, 12px);
   width: var(--modal-width, 500px);
-  max-height: 80vh;
-  overflow-y: auto;
   box-shadow: var(--shadow-lg, 0 10px 40px rgba(0, 0, 0, 0.1));
   animation: slideIn 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1001;
+  overflow: visible;
   border: 1px solid var(--gray-lighter, #e2e8f0);
 }
 
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(-20px);
   }
   to {
     opacity: 1;
@@ -42,50 +45,60 @@
 }
 
 .header {
-  background-color: var(--bg-sidebar, #0f172a); /* цвет фона сайдбара */
-  padding: 20px 24px;
-  border-radius: 20px 20px 0 0;
-  color: var(--sidebar-text, #f1f5f9); /* цвет текста сайдбара */
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--gray-light, #e2e8f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  background-color: var(--card-bg, #ffffff);
+  border-radius: var(--border-radius-lg, 12px) var(--border-radius-lg, 12px) 0 0;
 }
 
 .title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: var(--font-size-lg, 1.25rem);
   font-weight: 600;
-  letter-spacing: 0.5px;
+  color: var(--primary, #4361ee);
 }
 
 .closeButton {
-  position: absolute;
-  top: 20px;
-  right: 24px;
-  background: rgba(255, 255, 255, 0.2);
+  background: none;
   border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  font-size: 1.5rem;
-  line-height: 1;
+  font-size: var(--font-size-xl, 1.5rem);
   cursor: pointer;
-  color: var(--sidebar-text, #ffffff);
+  color: var(--gray, #64748b);
+  padding: 0;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  border-radius: 50%;
+  transition: background-color 0.2s;
 }
 
 .closeButton:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background-color: var(--light, #f1f5f9);
+  color: var(--danger, #ef476f);
 }
 
 .content {
-  padding: 24px;
+  padding: var(--spacing-lg);
+  overflow: visible;
+  flex: 1;
+  position: relative;
+  z-index: 1002;
+  background-color: var(--card-bg, #ffffff);
 }
 
 .footer {
-  padding: 16px 24px;
+  padding: var(--spacing-md) var(--spacing-lg);
   border-top: 1px solid var(--gray-light, #e2e8f0);
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+  background-color: var(--card-bg, #ffffff);
+  border-radius: 0 0 var(--border-radius-lg, 12px) var(--border-radius-lg, 12px);
 }

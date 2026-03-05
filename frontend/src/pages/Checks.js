@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Modal, Input, Card, Badge } from '../components/ui';
+import SearchableSelect from '../components/ui/SearchableSelect';
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api';
 import ExportButton from '../components/ui/ExportButton';
 import VirtualizedTable from '../components/ui/VirtualizedTable';
@@ -208,8 +209,8 @@ const Checks = () => {
     setShowCheckModal(true);
   };
 
-  const handleDeleteCheck = async (id) => {
-    if (!window.confirm('Удалить чек?')) return;
+  const handleDeleteCheck = async (id, description) => {
+    if (!window.confirm(`Удалить чек "${description}"?`)) return;
     try {
       await apiDelete(`/checks/${id}`);
       await fetchData();
@@ -269,8 +270,8 @@ const Checks = () => {
     });
   };
 
-  const handleDeleteItem = async (itemId) => {
-    if (!window.confirm('Удалить позицию?')) return;
+  const handleDeleteItem = async (itemId, itemText) => {
+    if (!window.confirm(`Удалить позицию "${itemText}"?`)) return;
     try {
       await apiDelete(`/checks/${currentCheckId}/items/${itemId}`);
       await fetchItemsForCheck(currentCheckId);
@@ -345,20 +346,41 @@ const Checks = () => {
 
   // Колонки для виртуализированной таблицы
   const tableColumns = [
-    { title: 'Группа', field: 'group', width: 250, render: (check) => getGroupDisplay(check.spending_group_id) },
+    { title: 'Группа', field: 'group', width: 300, render: (check) => getGroupDisplay(check.spending_group_id) },
     { title: 'Сотрудник', field: 'user', width: 200, render: (check) => getUserName(check.user_id) },
     { title: 'Описание', field: 'text', width: 300 },
-    { title: 'Дата', field: 'date', width: 100, render: (check) => formatDate(check.date) },
-    { title: 'Сумма', align: 'right', width: 120, render: (check) => formatCurrency(parseFloat(getCheckTotal(check.id))) },
+    { title: 'Дата', field: 'date', width: 120, render: (check) => formatDate(check.date) },
+    { title: 'Сумма', align: 'right', width: 150, render: (check) => formatCurrency(parseFloat(getCheckTotal(check.id))) },
     { 
       title: 'Действия', 
       width: 200,
       align: 'center',
       render: (check) => (
         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
-          <Button variant="info" size="small" onClick={() => handleManageItems(check.id)}>Поз.</Button>
-          <Button variant="warning" size="small" onClick={() => handleEditCheck(check)}>Ред.</Button>
-          <Button variant="danger" size="small" onClick={() => handleDeleteCheck(check.id)}>Удал.</Button>
+          <Button 
+            variant="info" 
+            size="small" 
+            onClick={() => handleManageItems(check.id)}
+            ariaLabel={`Управление позициями чека ${check.text}`}
+          >
+            Поз.
+          </Button>
+          <Button 
+            variant="warning" 
+            size="small" 
+            onClick={() => handleEditCheck(check)}
+            ariaLabel={`Редактировать чек ${check.text}`}
+          >
+            Ред.
+          </Button>
+          <Button 
+            variant="danger" 
+            size="small" 
+            onClick={() => handleDeleteCheck(check.id, check.text)}
+            ariaLabel={`Удалить чек ${check.text}`}
+          >
+            Удал.
+          </Button>
         </div>
       )
     }
@@ -372,13 +394,29 @@ const Checks = () => {
       <div className="flex-between mb-3">
         <h2 style={{ fontSize: 'var(--font-size-2xl)' }}>Чеки (наличные расходы)</h2>
         <div className="flex gap-1">
-          <Button variant={viewMode === 'cards' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('cards')}>
+          <Button 
+            variant={viewMode === 'cards' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('cards')}
+            ariaLabel="Показать карточками"
+          >
             Карточки
           </Button>
-          <Button variant={viewMode === 'table' ? 'primary' : 'outline'} size="small" onClick={() => setViewMode('table')}>
+          <Button 
+            variant={viewMode === 'table' ? 'primary' : 'outline'} 
+            size="small" 
+            onClick={() => setViewMode('table')}
+            ariaLabel="Показать таблицей"
+          >
             Таблица
           </Button>
-          <Button variant="primary" onClick={handleAddCheck}>+ Добавить чек</Button>
+          <Button 
+            variant="primary" 
+            onClick={handleAddCheck}
+            ariaLabel="Добавить новый чек"
+          >
+            + Добавить чек
+          </Button>
           <ExportButton 
             data={sortedChecks.map(check => ({
               id: check.id,
@@ -406,7 +444,12 @@ const Checks = () => {
 
       {/* Кнопка показа/скрытия фильтров */}
       <div className="mb-3">
-        <Button variant="info" size="small" onClick={() => setShowFilters(!showFilters)}>
+        <Button 
+          variant="info" 
+          size="small" 
+          onClick={() => setShowFilters(!showFilters)}
+          ariaLabel={showFilters ? 'Скрыть панель фильтров' : 'Показать панель фильтров'}
+        >
           {showFilters ? 'Скрыть фильтры' : 'Показать фильтры'}
         </Button>
       </div>
@@ -422,30 +465,34 @@ const Checks = () => {
               onChange={handleFilterChange}
               placeholder="Описание, группа, сотрудник..."
             />
-            <Input
-              type="select"
+            <SearchableSelect
               label="Сотрудник"
               name="userId"
               value={filters.userId}
               onChange={handleFilterChange}
-            >
-              <option value="">Все сотрудники</option>
-              {users.map(user => (
-                <option key={user.id} value={user.id}>{user.user_name}</option>
-              ))}
-            </Input>
-            <Input
-              type="select"
+              options={[
+                { value: '', label: 'Все сотрудники' },
+                ...users.map(user => ({
+                  value: user.id,
+                  label: user.user_name
+                }))
+              ]}
+              placeholder="Поиск сотрудника..."
+            />
+            <SearchableSelect
               label="Группа"
               name="groupId"
               value={filters.groupId}
               onChange={handleFilterChange}
-            >
-              <option value="">Все группы</option>
-              {spendingGroups.map(group => (
-                <option key={group.id} value={group.id}>{getGroupDisplay(group.id)}</option>
-              ))}
-            </Input>
+              options={[
+                { value: '', label: 'Все группы' },
+                ...spendingGroups.map(group => ({
+                  value: group.id,
+                  label: getGroupDisplay(group.id)
+                }))
+              ]}
+              placeholder="Поиск группы..."
+            />
             <Input
               label="Дата с"
               type="date"
@@ -462,7 +509,14 @@ const Checks = () => {
             />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
-            <Button variant="neutral" size="small" onClick={resetFilters}>Сбросить фильтры</Button>
+            <Button 
+              variant="neutral" 
+              size="small" 
+              onClick={resetFilters}
+              ariaLabel="Сбросить все фильтры"
+            >
+              Сбросить фильтры
+            </Button>
           </div>
         </Card>
       )}
@@ -471,7 +525,13 @@ const Checks = () => {
         <div className="flex-between mb-3">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
             <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray)' }}>Сортировать:</span>
-            <select onChange={handleSortChange} value={`${sortConfig.key}-${sortConfig.direction}`} className="input" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}>
+            <select 
+              onChange={handleSortChange} 
+              value={`${sortConfig.key}-${sortConfig.direction}`} 
+              className="input" 
+              style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', borderRadius: 'var(--border-radius)', fontSize: 'var(--font-size-sm)', minWidth: '220px' }}
+              aria-label="Выберите поле для сортировки"
+            >
               <option value="date-desc">Дата (сначала новые)</option>
               <option value="date-asc">Дата (сначала старые)</option>
               <option value="group-asc">Группа (А-Я)</option>
@@ -486,7 +546,11 @@ const Checks = () => {
       )}
 
       {sortedChecks.length === 0 ? (
-        <Card><p style={{ textAlign: 'center', color: 'var(--gray)' }}>Нет чеков, соответствующих фильтрам.</p></Card>
+        <Card>
+          <p style={{ textAlign: 'center', color: 'var(--gray)' }} role="status">
+            Нет чеков, соответствующих фильтрам.
+          </p>
+        </Card>
       ) : viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(500px, 1fr))', gap: 'var(--spacing-lg)' }}>
           {sortedChecks.map(check => (
@@ -516,9 +580,30 @@ const Checks = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
-                <Button variant="info" size="small" onClick={() => handleManageItems(check.id)}>📋 Позиции</Button>
-                <Button variant="warning" size="small" onClick={() => handleEditCheck(check)}>✎ Ред.</Button>
-                <Button variant="danger" size="small" onClick={() => handleDeleteCheck(check.id)}>× Удал.</Button>
+                <Button 
+                  variant="info" 
+                  size="small" 
+                  onClick={() => handleManageItems(check.id)}
+                  ariaLabel={`Управление позициями чека ${check.text}`}
+                >
+                  📋 Поз.
+                </Button>
+                <Button 
+                  variant="warning" 
+                  size="small" 
+                  onClick={() => handleEditCheck(check)}
+                  ariaLabel={`Редактировать чек ${check.text}`}
+                >
+                  ✎ Ред.
+                </Button>
+                <Button 
+                  variant="danger" 
+                  size="small" 
+                  onClick={() => handleDeleteCheck(check.id, check.text)}
+                  ariaLabel={`Удалить чек ${check.text}`}
+                >
+                  × Удал.
+                </Button>
               </div>
             </Card>
           ))}
@@ -534,160 +619,194 @@ const Checks = () => {
       )}
 
       {/* Модальное окно для чека */}
-      <Modal
-        isOpen={showCheckModal}
-        onClose={() => setShowCheckModal(false)}
-        title={editingCheck ? 'Редактировать чек' : 'Новый чек'}
-        footer={
-          <>
-            <Button variant="neutral" onClick={() => setShowCheckModal(false)}>Отмена</Button>
-            <Button variant="success" type="submit" form="checkForm">Сохранить</Button>
-          </>
-        }
-      >
-        <form id="checkForm" onSubmit={handleSaveCheck}>
-          <Input
-            type="select"
-            label="Группа расходов"
-            name="spending_group_id"
-            value={checkForm.spending_group_id}
-            onChange={handleCheckInputChange}
-            required
-          >
-            <option value="">Выберите группу</option>
-            {spendingGroups.map(group => (
-              <option key={group.id} value={group.id}>{getGroupDisplay(group.id)}</option>
-            ))}
-          </Input>
-          <Input
-            type="select"
-            label="Сотрудник"
-            name="user_id"
-            value={checkForm.user_id}
-            onChange={handleCheckInputChange}
-            required
-          >
-            <option value="">Выберите сотрудника</option>
-            {users.map(user => (
-              <option key={user.id} value={user.id}>{user.user_name} ({user.user_post})</option>
-            ))}
-          </Input>
-          <Input
-            label="Описание"
-            name="text"
-            value={checkForm.text}
-            onChange={handleCheckInputChange}
-            required
-          />
-          <Input
-            label="Дата"
-            type="date"
-            name="date"
-            value={checkForm.date}
-            onChange={handleCheckInputChange}
-            required
-          />
-        </form>
-      </Modal>
+      {showCheckModal && (
+        <Modal
+          isOpen={showCheckModal}
+          onClose={() => setShowCheckModal(false)}
+          title={editingCheck ? 'Редактировать чек' : 'Новый чек'}
+          footer={
+            <>
+              <Button 
+                variant="neutral" 
+                onClick={() => setShowCheckModal(false)}
+                ariaLabel="Отменить"
+              >
+                Отмена
+              </Button>
+              <Button 
+                variant="success" 
+                type="submit" 
+                form="checkForm"
+                ariaLabel="Сохранить чек"
+              >
+                Сохранить
+              </Button>
+            </>
+          }
+        >
+          <form id="checkForm" onSubmit={handleSaveCheck}>
+            <SearchableSelect
+              label="Группа расходов"
+              name="spending_group_id"
+              value={checkForm.spending_group_id}
+              onChange={handleCheckInputChange}
+              required
+              options={spendingGroups.map(group => ({
+                value: group.id,
+                label: getGroupDisplay(group.id)
+              }))}
+              placeholder="Поиск группы..."
+            />
+            <SearchableSelect
+              label="Сотрудник"
+              name="user_id"
+              value={checkForm.user_id}
+              onChange={handleCheckInputChange}
+              required
+              options={users.map(user => ({
+                value: user.id,
+                label: `${user.user_name} (${user.user_post})`
+              }))}
+              placeholder="Поиск сотрудника..."
+            />
+            <Input
+              label="Описание"
+              name="text"
+              value={checkForm.text}
+              onChange={handleCheckInputChange}
+              required
+            />
+            <Input
+              label="Дата"
+              type="date"
+              name="date"
+              value={checkForm.date}
+              onChange={handleCheckInputChange}
+              required
+            />
+          </form>
+        </Modal>
+      )}
 
       {/* Модальное окно для позиций */}
-      <Modal
-        isOpen={showItemsModal}
-        onClose={() => setShowItemsModal(false)}
-        title={`Позиции чека #${currentCheckId}`}
-        footer={null}
-        width="650px"
-      >
-        <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-          <h4 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--primary)' }}>
-            {editingItem ? 'Редактирование позиции' : 'Добавление позиции'}
-          </h4>
-          <form onSubmit={handleSaveItem}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-              <Input
-                label="Наименование товара/услуги"
-                name="text"
-                value={itemForm.text}
-                onChange={handleItemInputChange}
-                required
-                fullWidth
-              />
-              <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+      {showItemsModal && (
+        <Modal
+          isOpen={showItemsModal}
+          onClose={() => setShowItemsModal(false)}
+          title={`Позиции чека #${currentCheckId}`}
+          footer={null}
+          width="650px"
+        >
+          <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+            <h4 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--primary)' }}>
+              {editingItem ? 'Редактирование позиции' : 'Добавление позиции'}
+            </h4>
+            <form onSubmit={handleSaveItem}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                 <Input
-                  label="Цена"
-                  type="number"
-                  step="0.01"
-                  name="price"
-                  value={itemForm.price}
+                  label="Наименование товара/услуги"
+                  name="text"
+                  value={itemForm.text}
                   onChange={handleItemInputChange}
                   required
                   fullWidth
                 />
-                <Input
-                  label="Количество"
-                  type="number"
-                  step="0.01"
-                  name="quantity"
-                  value={itemForm.quantity}
-                  onChange={handleItemInputChange}
-                  required
-                  fullWidth
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
-                {editingItem && (
-                  <Button type="button" variant="neutral" onClick={() => { setEditingItem(null); setItemForm({ text: '', price: '', quantity: '' }); }}>
-                    Отмена
+                <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+                  <Input
+                    label="Цена"
+                    type="number"
+                    step="0.01"
+                    name="price"
+                    value={itemForm.price}
+                    onChange={handleItemInputChange}
+                    required
+                    fullWidth
+                  />
+                  <Input
+                    label="Количество"
+                    type="number"
+                    step="0.01"
+                    name="quantity"
+                    value={itemForm.quantity}
+                    onChange={handleItemInputChange}
+                    required
+                    fullWidth
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
+                  {editingItem && (
+                    <Button 
+                      type="button" 
+                      variant="neutral" 
+                      onClick={() => { setEditingItem(null); setItemForm({ text: '', price: '', quantity: '' }); }}
+                      ariaLabel="Отменить редактирование"
+                    >
+                      Отмена
+                    </Button>
+                  )}
+                  <Button type="submit" variant="success">
+                    {editingItem ? 'Обновить позицию' : 'Добавить позицию'}
                   </Button>
-                )}
-                <Button type="submit" variant="success">
-                  {editingItem ? 'Обновить позицию' : 'Добавить позицию'}
-                </Button>
+                </div>
               </div>
-            </div>
-          </form>
-        </div>
+            </form>
+          </div>
 
-        <div>
-          <h4 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--primary)' }}>Список позиций</h4>
-          {items.length === 0 ? (
-            <p style={{ color: 'var(--gray)', textAlign: 'center' }}>Позиции отсутствуют</p>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--light)' }}>
-                  <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)' }}>Наименование</th>
-                  <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Цена</th>
-                  <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Кол-во</th>
-                  <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Сумма</th>
-                  <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map(item => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid var(--light)' }}>
-                    <td style={{ padding: 'var(--spacing-sm)' }}>{item.text}</td>
-                    <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{Number(item.price).toFixed(2)}</td>
-                    <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{item.quantity}</td>
-                    <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{(Number(item.price) * Number(item.quantity)).toFixed(2)}</td>
-                    <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
-                      <Button variant="warning" size="small" onClick={() => handleEditItem(item)}>Ред.</Button>
-                      <Button variant="danger" size="small" onClick={() => handleDeleteItem(item.id)}>Удал.</Button>
-                    </td>
+          <div>
+            <h4 style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--primary)' }}>Список позиций</h4>
+            {items.length === 0 ? (
+              <p style={{ color: 'var(--gray)', textAlign: 'center' }} role="status">Позиции отсутствуют</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--light)' }}>
+                    <th style={{ textAlign: 'left', padding: 'var(--spacing-sm)' }}>Наименование</th>
+                    <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Цена</th>
+                    <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Кол-во</th>
+                    <th style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>Сумма</th>
+                    <th style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>Действия</th>
                   </tr>
-                ))}
-                <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--light)' }}>
-                  <td colSpan="3" style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>ИТОГО:</td>
-                  <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>
-                    {items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0).toFixed(2)}
-                  </td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
-          )}
-        </div>
-      </Modal>
+                </thead>
+                <tbody>
+                  {items.map(item => (
+                    <tr key={item.id} style={{ borderBottom: '1px solid var(--light)' }}>
+                      <td style={{ padding: 'var(--spacing-sm)' }}>{item.text}</td>
+                      <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{Number(item.price).toFixed(2)}</td>
+                      <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{item.quantity}</td>
+                      <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>{(Number(item.price) * Number(item.quantity)).toFixed(2)}</td>
+                      <td style={{ textAlign: 'center', padding: 'var(--spacing-sm)' }}>
+                        <Button 
+                          variant="warning" 
+                          size="small" 
+                          onClick={() => handleEditItem(item)}
+                          ariaLabel={`Редактировать позицию ${item.text}`}
+                        >
+                          Ред.
+                        </Button>
+                        <Button 
+                          variant="danger" 
+                          size="small" 
+                          onClick={() => handleDeleteItem(item.id, item.text)}
+                          ariaLabel={`Удалить позицию ${item.text}`}
+                        >
+                          Удал.
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr style={{ fontWeight: 'bold', borderTop: '2px solid var(--light)' }}>
+                    <td colSpan="3" style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>ИТОГО:</td>
+                    <td style={{ textAlign: 'right', padding: 'var(--spacing-sm)' }}>
+                      {items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0).toFixed(2)}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
