@@ -8,11 +8,9 @@ import { apiGet } from '../services/api';
 import '../styles/utils.css';
 
 const Dashboard = () => {
-  // Состояния для загрузки данных
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Данные
   const [users, setUsers] = useState([]);
   const [deposits, setDeposits] = useState([]);
   const [checks, setChecks] = useState([]);
@@ -21,16 +19,16 @@ const Dashboard = () => {
   const [expenseBills, setExpenseBills] = useState([]);
   const [spendingGroups, setSpendingGroups] = useState([]);
   const [objects, setObjects] = useState([]);
+  const [dataReady, setDataReady] = useState(false);
 
-  // Фильтр периода
-  const [period, setPeriod] = useState('month'); // 'today', 'week', 'month', 'year', 'custom'
+  const [period, setPeriod] = useState('month');
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
 
-  // Загрузка всех данных (аналогично другим страницам)
   const fetchData = async () => {
     setLoading(true);
     setError(null);
+    setDataReady(false);
     try {
       const [
         usersData, depositsData, checksData, expenseChecksData,
@@ -45,6 +43,7 @@ const Dashboard = () => {
         apiGet('/spending-groups'),
         apiGet('/objects')
       ]);
+      
       setUsers(usersData);
       setDeposits(depositsData);
       setChecks(checksData);
@@ -53,6 +52,8 @@ const Dashboard = () => {
       setExpenseBills(expenseBillsData);
       setSpendingGroups(groupsData);
       setObjects(objectsData);
+      
+      setDataReady(true);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -64,7 +65,6 @@ const Dashboard = () => {
     fetchData();
   }, []);
 
-  // Вычисление баланса кассы (пользователь id=1)
   const getCashboxBalance = () => {
     const cashboxDeposits = deposits
       .filter(d => Number(d.user_id) === 1)
@@ -84,7 +84,6 @@ const Dashboard = () => {
     return cashboxDeposits - cashboxCheckTotal - othersDeposits;
   };
 
-  // Функция для получения дат в зависимости от выбранного периода
   const getDateRange = () => {
     const now = new Date();
     let from, to;
@@ -115,12 +114,10 @@ const Dashboard = () => {
         to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     }
 
-    // Преобразуем в строки YYYY-MM-DD для сравнения
     const format = (d) => d ? d.toISOString().split('T')[0] : null;
     return { from: format(from), to: format(to) };
   };
 
-  // Фильтрация чеков и счетов по периоду
   const { from, to } = getDateRange();
 
   const filteredChecks = useMemo(() => {
@@ -139,62 +136,99 @@ const Dashboard = () => {
     });
   }, [bills, from, to]);
 
-  // Суммы расходов
   const totalCheckExpenses = useMemo(() => {
     const checkIds = filteredChecks.map(c => c.id);
-    return expenseChecks
-      .filter(ec => checkIds.includes(Number(ec.check_id)))
-      .reduce((sum, ec) => sum + Number(ec.price) * Number(ec.quantity), 0);
+    console.log('Check IDs for period:', checkIds);
+    
+    const relevantChecks = expenseChecks.filter(ec => 
+      checkIds.some(id => Number(id) === Number(ec.check_id))
+    );
+    console.log('Relevant expense checks:', relevantChecks);
+    
+    const total = relevantChecks.reduce((sum, ec) => sum + Number(ec.price) * Number(ec.quantity), 0);
+    console.log('Total check expenses:', total);
+    
+    return total;
   }, [filteredChecks, expenseChecks]);
 
   const totalBillExpenses = useMemo(() => {
     const billIds = filteredBills.map(b => b.id);
-    return expenseBills
-      .filter(eb => billIds.includes(Number(eb.bills_id)))
-      .reduce((sum, eb) => sum + Number(eb.price) * Number(eb.quantity), 0);
+    console.log('Bill IDs for period:', billIds);
+    
+    // Покажем все счета за период и их позиции
+    filteredBills.forEach(bill => {
+      const positions = expenseBills.filter(eb => Number(eb.bills_id) === Number(bill.id));
+      console.log(`Bill ${bill.id} (${bill.text}) has ${positions.length} positions`);
+    });
+    
+    // Важно: преобразуем оба значения к Number для сравнения
+    const relevantBills = expenseBills.filter(eb => 
+      billIds.some(id => Number(id) === Number(eb.bills_id))
+    );
+    
+    console.log('Relevant expense bills:', relevantBills);
+    
+    const total = relevantBills.reduce((sum, eb) => sum + Number(eb.price) * Number(eb.quantity), 0);
+    console.log('Total bill expenses:', total);
+    
+    return total;
   }, [filteredBills, expenseBills]);
 
   const totalExpenses = totalCheckExpenses + totalBillExpenses;
-
-  // Количество операций
   const operationsCount = filteredChecks.length + filteredBills.length;
 
-  // Расходы по месяцам (для графика)
+  // Расходы по месяцам (счета + чеки) - ИСПРАВЛЕННАЯ ВЕРСИЯ
   const monthlyExpenses = useMemo(() => {
-    // Собираем все позиции чеков и счетов с датами
-    const checkItems = expenseChecks.map(ec => {
-      const check = checks.find(c => c.id === ec.check_id);
-      return { date: check?.date, amount: Number(ec.price) * Number(ec.quantity) };
-    }).filter(item => item.date);
+    if (!dataReady) {
+      return [];
+    }
 
-    const billItems = expenseBills.map(eb => {
-      const bill = bills.find(b => b.id === eb.bills_id);
-      return { date: bill?.date, amount: Number(eb.price) * Number(eb.quantity) };
-    }).filter(item => item.date);
+    // Собираем все позиции чеков с датами
+    const checkItems = [];
+    expenseChecks.forEach(ec => {
+      if (!ec || !ec.check_id) return;
+      const check = checks.find(c => c && Number(c.id) === Number(ec.check_id));
+      if (!check || !check.date) return;
+      checkItems.push({
+        date: check.date,
+        amount: Number(ec.price) * Number(ec.quantity)
+      });
+    });
+
+    // Собираем все позиции счетов с датами
+    const billItems = [];
+    expenseBills.forEach(eb => {
+      if (!eb || !eb.bills_id) return;
+      const bill = bills.find(b => b && Number(b.id) === Number(eb.bills_id));
+      if (!bill || !bill.date) return;
+      billItems.push({
+        date: bill.date,
+        amount: Number(eb.price) * Number(eb.quantity)
+      });
+    });
 
     const allItems = [...checkItems, ...billItems];
 
     // Группируем по году-месяцу
     const months = {};
     allItems.forEach(item => {
-      if (!item.date) return;
-      const monthKey = item.date.substring(0, 7); // YYYY-MM
+      if (!item || !item.date) return;
+      const monthKey = item.date.substring(0, 7);
       if (!months[monthKey]) months[monthKey] = 0;
       months[monthKey] += item.amount;
     });
 
-    // Преобразуем в массив для графика
-    return Object.entries(months)
+    // Преобразуем в массив для графика и сортируем по дате
+    const result = Object.entries(months)
       .map(([month, total]) => ({ month, total }))
       .sort((a, b) => a.month.localeCompare(b.month));
-  }, [checks, bills, expenseChecks, expenseBills]);
 
-  // Топ-5 групп расходов по сумме
+    return result;
+  }, [checks, bills, expenseChecks, expenseBills, dataReady]);
+
   const topGroups = useMemo(() => {
-    // Собираем все позиции с привязкой к группе (через check/bill -> spending_group)
     const groupTotals = {};
 
-    // Чеки
     checks.forEach(check => {
       const groupId = check.spending_group_id;
       if (!groupId) return;
@@ -204,7 +238,6 @@ const Dashboard = () => {
       groupTotals[groupId] += total;
     });
 
-    // Счета
     bills.forEach(bill => {
       const groupId = bill.spending_group_id;
       if (!groupId) return;
@@ -214,7 +247,6 @@ const Dashboard = () => {
       groupTotals[groupId] += total;
     });
 
-    // Преобразуем в массив, добавим название группы
     const result = Object.entries(groupTotals).map(([groupId, total]) => {
       const group = spendingGroups.find(g => Number(g.id) === Number(groupId));
       const obj = objects.find(o => Number(o.id) === Number(group?.object_id));
@@ -223,11 +255,9 @@ const Dashboard = () => {
       return { name, total };
     });
 
-    // Сортируем по убыванию и берём топ-5
     return result.sort((a, b) => b.total - a.total).slice(0, 5);
   }, [checks, bills, expenseChecks, expenseBills, spendingGroups, objects]);
 
-  // Последние операции (объединяем чеки и счета, сортируем по дате, берём 5)
   const recentOperations = useMemo(() => {
     const checkOps = filteredChecks.map(c => ({ ...c, type: 'check' }));
     const billOps = filteredBills.map(b => ({ ...b, type: 'bill' }));
@@ -235,7 +265,6 @@ const Dashboard = () => {
     return allOps.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
   }, [filteredChecks, filteredBills]);
 
-  // Форматирование даты
   const formatDate = (dateStr) => dateStr.split('-').reverse().join('.');
 
   if (loading) return <div>Загрузка дашборда...</div>;
@@ -280,7 +309,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Карточки с ключевыми показателями */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)' }}>
         <Card>
           <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--gray)' }}>Баланс кассы</div>
@@ -310,20 +338,54 @@ const Dashboard = () => {
 
       {/* График расходов по месяцам */}
       <Card title="Расходы по месяцам" className="mb-3">
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={monthlyExpenses} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip formatter={(value) => `${value.toFixed(2)} ₽`} />
-            <Legend />
-            <Line type="monotone" dataKey="total" stroke="var(--primary)" name="Расходы" />
-          </LineChart>
-        </ResponsiveContainer>
+        {!dataReady ? (
+          <p style={{ textAlign: 'center', color: 'var(--gray)', padding: '40px' }}>
+            Загрузка данных...
+          </p>
+        ) : monthlyExpenses.length === 0 ? (
+          <p style={{ textAlign: 'center', color: 'var(--gray)', padding: '40px' }}>
+            Нет данных для отображения
+          </p>
+        ) : (
+          <div style={{ width: '100%', height: '300px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={monthlyExpenses}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <XAxis 
+                  dataKey="month" 
+                  tick={{ fill: '#666', fontSize: 12 }}
+                />
+                <YAxis 
+                  tick={{ fill: '#666', fontSize: 12 }}
+                  tickFormatter={(value) => value.toLocaleString('ru-RU')}
+                />
+                <Tooltip 
+                  formatter={(value) => [`${Number(value).toFixed(2)} ₽`, 'Расходы']}
+                  labelFormatter={(label) => {
+                    const [year, month] = label.split('-');
+                    return `${month}.${year}`;
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="total" 
+                  stroke="#4361ee" 
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                  name="Расходы"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </Card>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
-        {/* Топ-5 групп расходов */}
         <Card title="Топ-5 групп расходов">
           {topGroups.length === 0 ? (
             <p style={{ color: 'var(--gray)', textAlign: 'center' }}>Нет данных</p>
@@ -341,7 +403,6 @@ const Dashboard = () => {
           )}
         </Card>
 
-        {/* Последние операции */}
         <Card title="Последние операции">
           {recentOperations.length === 0 ? (
             <p style={{ color: 'var(--gray)', textAlign: 'center' }}>Нет операций за период</p>
